@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:feather_icons/feather_icons.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/stock_flow_chart.dart';
 import '../../../shared/utils/greeting_util.dart';
 import '../../../shared/utils/responsive_util.dart';
+import '../../../shared/utils/user_util.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/navigation_service.dart';
+import '../../auth/cubit/auth_cubit.dart';
+import '../../auth/cubit/auth_state.dart';
 
 /// Main dashboard screen displaying inventory overview
 /// Implements clean architecture with separation of concerns
@@ -64,175 +68,167 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildTopSection() {
-    final profileSize = ResponsiveUtil.getContainerSize(context, baseSize: 56);
-    final iconSize = ResponsiveUtil.getIconSize(context, baseSize: 32);
-    final greetingFontSize = ResponsiveUtil.getFontSize(context, baseSize: 11);
-    final nameFontSize = ResponsiveUtil.getFontSize(context, baseSize: 20);
-    final buttonIconSize = ResponsiveUtil.getIconSize(context, baseSize: 22);
-    
-    return Container(
-      padding: ResponsiveUtil.getTopBarPadding(context),
-      color: Colors.white,
-      child: Row(
-        children: [
-          // Profile Picture
-          Container(
-            width: profileSize,
-            height: profileSize,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.profileBackground,
-              border: Border.all(color: AppColors.profileBorder, width: 2.5),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Person icon
-                Positioned(
-                  bottom: 8,
-                  child: Icon(
-                    FeatherIcons.user,
-                    color: AppColors.profileIcon,
-                    size: iconSize,
-                  ),
+    return BlocBuilder<AuthCubit, AuthState>(
+      builder: (context, authState) {
+        // Get user information from auth state
+        final userName = authState is AuthAuthenticated 
+            ? authState.user.name 
+            : AppConstants.defaultUserName;
+        final userInitials = authState is AuthAuthenticated 
+            ? UserUtil.getInitials(authState.user.name)
+            : UserUtil.getInitials(AppConstants.defaultUserName);
+        
+        final profileSize = ResponsiveUtil.getContainerSize(context, baseSize: 56);
+        final greetingFontSize = ResponsiveUtil.getFontSize(context, baseSize: 11);
+        final nameFontSize = ResponsiveUtil.getFontSize(context, baseSize: 20);
+        final buttonIconSize = ResponsiveUtil.getIconSize(context, baseSize: 22);
+        final initialsFontSize = ResponsiveUtil.getFontSize(context, baseSize: 18);
+        
+        return Container(
+          padding: ResponsiveUtil.getTopBarPadding(context),
+          color: Colors.white,
+          child: Row(
+            children: [
+              // Profile Picture with User Initials
+              Container(
+                width: profileSize,
+                height: profileSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.profileBackground,
+                  border: Border.all(color: AppColors.profileBorder, width: 2.5),
                 ),
-                // Cap representation
-                Positioned(
-                  top: 4,
-                  child: Container(
-                    width: ResponsiveUtil.getContainerSize(context, baseSize: 40),
-                    height: ResponsiveUtil.getContainerSize(context, baseSize: 20),
-                    decoration: BoxDecoration(
+                child: Center(
+                  child: Text(
+                    userInitials,
+                    style: TextStyle(
+                      fontSize: initialsFontSize,
+                      fontWeight: FontWeight.bold,
                       color: AppColors.profileIcon,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(20),
-                        topRight: Radius.circular(20),
-                        bottomLeft: Radius.circular(4),
-                        bottomRight: Radius.circular(4),
-                      ),
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          SizedBox(width: ResponsiveUtil.getSpacing(context)),
-          
-          // Greeting and Name
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  GreetingUtil.getGreeting(),
-                  style: TextStyle(
-                    fontSize: greetingFontSize,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                SizedBox(height: ResponsiveUtil.isSmallScreen(context) ? 2 : 4),
-                Row(
+              ),
+              SizedBox(width: ResponsiveUtil.getSpacing(context)),
+              
+              // Greeting and Name
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        AppConstants.defaultUserName,
-                        style: TextStyle(
-                          fontSize: nameFontSize,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                          letterSpacing: 0.2,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      GreetingUtil.getGreeting(),
+                      style: TextStyle(
+                        fontSize: greetingFontSize,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
                       ),
                     ),
-                    SizedBox(width: ResponsiveUtil.isSmallScreen(context) ? 4 : 6),
-                    Text(
-                      '👋',
-                      style: TextStyle(fontSize: nameFontSize),
+                    SizedBox(height: ResponsiveUtil.isSmallScreen(context) ? 2 : 4),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            userName,
+                            style: TextStyle(
+                              fontSize: nameFontSize,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                              letterSpacing: 0.2,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(width: ResponsiveUtil.isSmallScreen(context) ? 4 : 6),
+                        Text(
+                          '👋',
+                          style: TextStyle(fontSize: nameFontSize),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          
-          // Chat Button
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {},
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: EdgeInsets.all(ResponsiveUtil.isSmallScreen(context) ? 8 : 10),
-                decoration: BoxDecoration(
-                  color: AppColors.buttonBackground,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  FeatherIcons.messageCircle,
-                  color: AppColors.buttonIcon,
-                  size: buttonIconSize,
-                ),
               ),
-            ),
-          ),
-          SizedBox(width: ResponsiveUtil.getSpacing(context)),
           
-          // Notifications with Badge
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                NavigationService.instance.navigateToNotifications();
-              },
-              borderRadius: BorderRadius.circular(10),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
+              // Chat Button
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {},
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
                     padding: EdgeInsets.all(ResponsiveUtil.isSmallScreen(context) ? 8 : 10),
                     decoration: BoxDecoration(
                       color: AppColors.buttonBackground,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      FeatherIcons.bell,
+                      FeatherIcons.messageCircle,
                       color: AppColors.buttonIcon,
                       size: buttonIconSize,
                     ),
                   ),
-                  Positioned(
-                    right: -2,
-                    top: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(5),
-                      decoration: const BoxDecoration(
-                        color: AppColors.notificationBadge,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 20,
-                        minHeight: 20,
-                      ),
-                      child: Text(
-                        '${AppConstants.notificationCount}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              SizedBox(width: ResponsiveUtil.getSpacing(context)),
+              
+              // Notifications with Badge
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    NavigationService.instance.navigateToNotifications();
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(ResponsiveUtil.isSmallScreen(context) ? 8 : 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.buttonBackground,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          FeatherIcons.bell,
+                          color: AppColors.buttonIcon,
+                          size: buttonIconSize,
+                        ),
+                      ),
+                      Positioned(
+                        right: -2,
+                        top: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: const BoxDecoration(
+                            color: AppColors.notificationBadge,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 20,
+                            minHeight: 20,
+                          ),
+                          child: Text(
+                            '${AppConstants.notificationCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
