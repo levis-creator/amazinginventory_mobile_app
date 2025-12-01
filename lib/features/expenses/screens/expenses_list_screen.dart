@@ -3,6 +3,9 @@ import 'package:feather_icons/feather_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/navigation_service.dart';
 import 'package:amazinginventory/shared/widgets/search_bar.dart' as shared;
+import '../models/expense_model.dart';
+import '../data/mock_expense_repository.dart';
+import '../widgets/expense_card.dart';
 
 /// Expenses list screen
 /// Implements clean architecture with separation of concerns
@@ -15,11 +18,14 @@ class ExpensesListScreen extends StatefulWidget {
 
 class _ExpensesListScreenState extends State<ExpensesListScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final List<dynamic> _filteredExpenses = [];
+  List<ExpenseModel> _expenses = [];
+  List<ExpenseModel> _filteredExpenses = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadExpenses();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -30,8 +36,47 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
     super.dispose();
   }
 
+  Future<void> _loadExpenses() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final expenses = await MockExpenseRepository.getExpenses();
+      setState(() {
+        _expenses = expenses;
+        _filteredExpenses = expenses;
+        _isLoading = false;
+      });
+      _applyFilters();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading expenses: $e')),
+        );
+      }
+    }
+  }
+
   void _onSearchChanged() {
-    // TODO: Implement search filtering
+    _applyFilters();
+  }
+
+  void _applyFilters() {
+    final searchQuery = _searchController.text;
+    setState(() {
+      if (searchQuery.isEmpty) {
+        _filteredExpenses = _expenses;
+      } else {
+        final searchLower = searchQuery.toLowerCase();
+        _filteredExpenses = _expenses.where((expense) {
+          return expense.notes?.toLowerCase().contains(searchLower) ?? false;
+        }).toList();
+      }
+    });
   }
 
   void _navigateToAddExpense() {
@@ -55,15 +100,22 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
               ),
             ),
             Expanded(
-              child: _filteredExpenses.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _filteredExpenses.length,
-                      itemBuilder: (context, index) {
-                        return const SizedBox.shrink();
-                      },
-                    ),
+              child: _isLoading
+                  ? _buildLoadingState()
+                  : _filteredExpenses.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          onRefresh: _loadExpenses,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: _filteredExpenses.length,
+                            itemBuilder: (context, index) {
+                              return ExpenseCard(
+                                expense: _filteredExpenses[index],
+                              );
+                            },
+                          ),
+                        ),
             ),
           ],
         ),
@@ -78,35 +130,41 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    NavigationService.instance.onModuleChanged?.call(null);
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      FeatherIcons.arrowLeft,
-                      color: AppColors.textPrimary,
-                      size: 24,
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      NavigationService.instance.onModuleChanged?.call(null);
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        FeatherIcons.arrowLeft,
+                        color: AppColors.textPrimary,
+                        size: 24,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Expenses',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    'Expenses',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Material(
             color: AppColors.metricPurple,
@@ -132,6 +190,12 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(),
     );
   }
 

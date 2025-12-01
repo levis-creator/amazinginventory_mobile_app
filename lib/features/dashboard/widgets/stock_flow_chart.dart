@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:feather_icons/feather_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/utils/responsive_util.dart';
 
 /// Stock flow chart widget displaying weekly inventory trends
 /// Uses fl_chart for visualization
@@ -11,8 +12,15 @@ class StockFlowChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardPadding = ResponsiveUtil.getCardPadding(context);
+    final titleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 22);
+    final subtitleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 14);
+    final periodFontSize = ResponsiveUtil.getFontSize(context, baseSize: 12);
+    final chartHeight = ResponsiveUtil.getChartHeight(context);
+    final spacing = ResponsiveUtil.getSpacing(context);
+    
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(cardPadding + 4),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(16),
@@ -31,17 +39,22 @@ class StockFlowChart extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Stock Flow',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                  letterSpacing: -0.3,
+              Flexible(
+                child: Text(
+                  'Stock Flow',
+                  style: TextStyle(
+                    fontSize: titleFontSize,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.3,
+                  ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResponsiveUtil.isSmallScreen(context) ? 10 : 14,
+                  vertical: ResponsiveUtil.isSmallScreen(context) ? 6 : 8,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.gray100,
                   borderRadius: BorderRadius.circular(10),
@@ -52,15 +65,15 @@ class StockFlowChart extends StatelessWidget {
                     Text(
                       'Last 7 days',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: periodFontSize,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: ResponsiveUtil.isSmallScreen(context) ? 2 : 4),
                     Icon(
                       FeatherIcons.chevronDown,
-                      size: 18,
+                      size: ResponsiveUtil.getIconSize(context, baseSize: 18),
                       color: AppColors.textTertiary,
                     ),
                   ],
@@ -68,18 +81,18 @@ class StockFlowChart extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: spacing - 2),
           Text(
             '+18% Rise in Total Inventory Units',
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: subtitleFontSize,
               color: AppColors.successText,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 28),
+          SizedBox(height: spacing + 8),
           SizedBox(
-            height: 220,
+            height: chartHeight,
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,

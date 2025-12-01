@@ -3,6 +3,7 @@ import 'package:feather_icons/feather_icons.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/stock_flow_chart.dart';
 import '../../../shared/utils/greeting_util.dart';
+import '../../../shared/utils/responsive_util.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/navigation_service.dart';
@@ -37,17 +38,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // Main Content
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResponsiveUtil.getHorizontalPadding(context),
+                  vertical: ResponsiveUtil.getVerticalPadding(context),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Metric Cards Grid
                     _buildMetricCards(),
-                    const SizedBox(height: 24),
+                    SizedBox(height: ResponsiveUtil.getLargeSpacing(context)),
                     
                     // Stock Flow Chart
                     const StockFlowChart(),
-                    const SizedBox(height: 20),
+                    SizedBox(height: ResponsiveUtil.getLargeSpacing(context)),
                   ],
                 ),
               ),
@@ -60,15 +64,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildTopSection() {
+    final profileSize = ResponsiveUtil.getContainerSize(context, baseSize: 56);
+    final iconSize = ResponsiveUtil.getIconSize(context, baseSize: 32);
+    final greetingFontSize = ResponsiveUtil.getFontSize(context, baseSize: 11);
+    final nameFontSize = ResponsiveUtil.getFontSize(context, baseSize: 20);
+    final buttonIconSize = ResponsiveUtil.getIconSize(context, baseSize: 22);
+    
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      padding: ResponsiveUtil.getTopBarPadding(context),
       color: Colors.white,
       child: Row(
         children: [
           // Profile Picture
           Container(
-            width: 56,
-            height: 56,
+            width: profileSize,
+            height: profileSize,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.profileBackground,
@@ -83,15 +93,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Icon(
                     FeatherIcons.user,
                     color: AppColors.profileIcon,
-                    size: 32,
+                    size: iconSize,
                   ),
                 ),
                 // Cap representation
                 Positioned(
                   top: 4,
                   child: Container(
-                    width: 40,
-                    height: 20,
+                    width: ResponsiveUtil.getContainerSize(context, baseSize: 40),
+                    height: ResponsiveUtil.getContainerSize(context, baseSize: 20),
                     decoration: BoxDecoration(
                       color: AppColors.profileIcon,
                       borderRadius: const BorderRadius.only(
@@ -106,7 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: ResponsiveUtil.getSpacing(context)),
           
           // Greeting and Name
           Expanded(
@@ -116,28 +126,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text(
                   GreetingUtil.getGreeting(),
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: greetingFontSize,
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.3,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: ResponsiveUtil.isSmallScreen(context) ? 2 : 4),
                 Row(
                   children: [
-                    Text(
-                      AppConstants.defaultUserName,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                        letterSpacing: 0.2,
+                    Flexible(
+                      child: Text(
+                        AppConstants.defaultUserName,
+                        style: TextStyle(
+                          fontSize: nameFontSize,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                          letterSpacing: 0.2,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    const Text(
+                    SizedBox(width: ResponsiveUtil.isSmallScreen(context) ? 4 : 6),
+                    Text(
                       '👋',
-                      style: TextStyle(fontSize: 20),
+                      style: TextStyle(fontSize: nameFontSize),
                     ),
                   ],
                 ),
@@ -152,7 +165,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onTap: () {},
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.all(10),
+                padding: EdgeInsets.all(ResponsiveUtil.isSmallScreen(context) ? 8 : 10),
                 decoration: BoxDecoration(
                   color: AppColors.buttonBackground,
                   borderRadius: BorderRadius.circular(10),
@@ -160,12 +173,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Icon(
                   FeatherIcons.messageCircle,
                   color: AppColors.buttonIcon,
-                  size: 22,
+                  size: buttonIconSize,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: ResponsiveUtil.getSpacing(context)),
           
           // Notifications with Badge
           Material(
@@ -179,7 +192,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 clipBehavior: Clip.none,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: EdgeInsets.all(ResponsiveUtil.isSmallScreen(context) ? 8 : 10),
                     decoration: BoxDecoration(
                       color: AppColors.buttonBackground,
                       borderRadius: BorderRadius.circular(10),
@@ -187,7 +200,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Icon(
                       FeatherIcons.bell,
                       color: AppColors.buttonIcon,
-                      size: 22,
+                      size: buttonIconSize,
                     ),
                   ),
                   Positioned(
@@ -224,6 +237,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildMetricCards() {
+    final spacing = ResponsiveUtil.getSpacing(context);
+    
     return Column(
       children: [
         // First Row
@@ -238,7 +253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 isCircularIcon: true,
               ),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: spacing),
             Expanded(
               child: MetricCard(
                 value: '1,284',
@@ -249,7 +264,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: spacing),
         // Second Row
         Row(
           children: [
@@ -261,7 +276,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: FeatherIcons.package,
               ),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: spacing),
             Expanded(
               child: MetricCard(
                 value: '23',

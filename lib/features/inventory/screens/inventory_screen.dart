@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:feather_icons/feather_icons.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/utils/responsive_util.dart';
 import '../widgets/search_bar.dart' as inventory;
 import '../widgets/filter_chips.dart';
 import '../widgets/product_card.dart';
@@ -49,15 +50,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   void _applyFilters() {
     String searchQuery = _searchController.text.toLowerCase();
-    
+
     setState(() {
       _filteredProducts = _products.where((product) {
         // Search filter
-        bool matchesSearch = product.name.toLowerCase().contains(searchQuery) ||
+        bool matchesSearch =
+            product.name.toLowerCase().contains(searchQuery) ||
             product.sku.toLowerCase().contains(searchQuery);
-        
+
         if (!matchesSearch) return false;
-        
+
         // Status filter
         switch (_selectedFilter) {
           case FilterType.totalStock:
@@ -96,17 +98,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
           children: [
             // Top Bar
             _buildTopBar(),
-            
+
             // Search and Filters
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              padding: EdgeInsets.fromLTRB(
+                ResponsiveUtil.getHorizontalPadding(context),
+                ResponsiveUtil.getSpacing(context),
+                ResponsiveUtil.getHorizontalPadding(context),
+                ResponsiveUtil.getSpacing(context) - 4,
+              ),
               child: Column(
                 children: [
                   inventory.InventorySearchBar(
                     controller: _searchController,
                     hintText: 'Search products...',
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: ResponsiveUtil.getSpacing(context)),
                   FilterChips(
                     selectedFilter: _selectedFilter,
                     onFilterChanged: _onFilterChanged,
@@ -114,18 +121,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ],
               ),
             ),
-            
+
             // Product List
             Expanded(
               child: _filteredProducts.isEmpty
                   ? _buildEmptyState()
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ResponsiveUtil.getHorizontalPadding(
+                          context,
+                        ),
+                      ),
                       itemCount: _filteredProducts.length,
                       itemBuilder: (context, index) {
-                        return ProductCard(
-                          product: _filteredProducts[index],
-                        );
+                        return ProductCard(product: _filteredProducts[index]);
                       },
                     ),
             ),
@@ -137,18 +146,24 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildTopBar() {
+    final titleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 24);
+    final buttonFontSize = ResponsiveUtil.getFontSize(context, baseSize: 14);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      padding: ResponsiveUtil.getTopBarPadding(context),
       color: AppColors.cardBackground,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Inventory',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+          Flexible(
+            child: Text(
+              'Inventory',
+              style: TextStyle(
+                fontSize: titleFontSize,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           Material(
@@ -158,12 +173,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
               onTap: _navigateToAddProduct,
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: const Text(
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResponsiveUtil.isSmallScreen(context) ? 12 : 16,
+                  vertical: ResponsiveUtil.isSmallScreen(context) ? 8 : 10,
+                ),
+                child: Text(
                   'Add Product',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: buttonFontSize,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -176,30 +194,37 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildEmptyState() {
+    final iconSize = ResponsiveUtil.getContainerSize(context, baseSize: 64);
+    final titleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 18);
+    final subtitleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 14);
+    final spacing = ResponsiveUtil.getSpacing(context);
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            FeatherIcons.package,
-            size: 64,
-            color: AppColors.gray400,
-          ),
-          const SizedBox(height: 16),
+          Icon(FeatherIcons.package, size: iconSize, color: AppColors.gray400),
+          SizedBox(height: spacing),
           Text(
             'No products found',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: titleFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Try adjusting your search or filters',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textTertiary,
+          SizedBox(height: spacing - 4),
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: ResponsiveUtil.getHorizontalPadding(context),
+            ),
+            child: Text(
+              'Try adjusting your search or filters',
+              style: TextStyle(
+                fontSize: subtitleFontSize,
+                color: AppColors.textTertiary,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
         ],
@@ -207,4 +232,3 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 }
-

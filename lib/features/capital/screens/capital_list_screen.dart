@@ -78,35 +78,41 @@ class _CapitalListScreenState extends State<CapitalListScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    NavigationService.instance.onModuleChanged?.call(null);
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      FeatherIcons.arrowLeft,
-                      color: AppColors.textPrimary,
-                      size: 24,
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      NavigationService.instance.onModuleChanged?.call(null);
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        FeatherIcons.arrowLeft,
+                        color: AppColors.textPrimary,
+                        size: 24,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Capital Investments',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    'Capital Investments',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Material(
             color: AppColors.metricPurple,

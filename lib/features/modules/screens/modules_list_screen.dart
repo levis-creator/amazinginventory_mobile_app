@@ -5,6 +5,7 @@ import '../widgets/module_list_item.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/navigation_service.dart';
+import '../../../shared/utils/responsive_util.dart';
 import 'package:amazinginventory/shared/widgets/search_bar.dart' as shared;
 
 /// Modules list screen displaying all available inventory management modules
@@ -140,7 +141,12 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
 
             // Search
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              padding: EdgeInsets.fromLTRB(
+                ResponsiveUtil.getHorizontalPadding(context),
+                ResponsiveUtil.getSpacing(context),
+                ResponsiveUtil.getHorizontalPadding(context),
+                ResponsiveUtil.getSpacing(context) - 4,
+              ),
               child: shared.AppSearchBar(
                 controller: _searchController,
                 hintText: 'Search modules...',
@@ -152,7 +158,9 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
               child: _filteredModules.isEmpty
                   ? _buildEmptyState()
                   : ListView(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.all(
+                        ResponsiveUtil.getHorizontalPadding(context),
+                      ),
                       children: _filteredModules.map((module) {
                         return ModuleListItem(
                           module: module,
@@ -168,8 +176,10 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
   }
 
   Widget _buildTopBar() {
+    final titleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 24);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      padding: ResponsiveUtil.getTopBarPadding(context),
       color: AppColors.cardBackground,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -177,37 +187,51 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
           Text(
             'Modules',
             style: TextStyle(
-              fontSize: 24,
+              fontSize: titleFontSize,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
             ),
           ),
           // Placeholder to maintain consistent layout with other screens
-          const SizedBox(width: 80),
+          SizedBox(width: ResponsiveUtil.isSmallScreen(context) ? 60 : 80),
         ],
       ),
     );
   }
 
   Widget _buildEmptyState() {
+    final iconSize = ResponsiveUtil.getContainerSize(context, baseSize: 64);
+    final titleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 18);
+    final subtitleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 14);
+    final spacing = ResponsiveUtil.getSpacing(context);
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(FeatherIcons.grid, size: 64, color: AppColors.gray400),
-          const SizedBox(height: 16),
+          Icon(FeatherIcons.grid, size: iconSize, color: AppColors.gray400),
+          SizedBox(height: spacing),
           Text(
             'No modules found',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: titleFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Try adjusting your search or filters',
-            style: TextStyle(fontSize: 14, color: AppColors.textTertiary),
+          SizedBox(height: spacing - 4),
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: ResponsiveUtil.getHorizontalPadding(context),
+            ),
+            child: Text(
+              'Try adjusting your search or filters',
+              style: TextStyle(
+                fontSize: subtitleFontSize,
+                color: AppColors.textTertiary,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ),
         ],
       ),

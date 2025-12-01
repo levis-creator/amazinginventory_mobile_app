@@ -8,6 +8,8 @@ class FormInputField extends StatelessWidget {
   final TextEditingController? controller;
   final TextInputType? keyboardType;
   final bool readOnly;
+  final String? Function(String?)? validator;
+  final void Function(String)? onChanged;
 
   const FormInputField({
     super.key,
@@ -16,6 +18,8 @@ class FormInputField extends StatelessWidget {
     this.controller,
     this.keyboardType,
     this.readOnly = false,
+    this.validator,
+    this.onChanged,
   });
 
   @override
@@ -32,10 +36,12 @@ class FormInputField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
+        TextFormField(
           controller: controller,
           keyboardType: keyboardType,
           readOnly: readOnly,
+          validator: validator,
+          onChanged: onChanged,
           decoration: InputDecoration(
             hintText: placeholder ?? label,
             hintStyle: TextStyle(
@@ -62,6 +68,20 @@ class FormInputField extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(
                 color: AppColors.metricPurple,
+                width: 1.5,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: AppColors.error,
+                width: 1,
+              ),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: AppColors.error,
                 width: 1.5,
               ),
             ),

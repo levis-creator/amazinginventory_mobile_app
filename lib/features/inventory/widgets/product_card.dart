@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:feather_icons/feather_icons.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/utils/responsive_util.dart';
 import '../models/product_model.dart';
 import '../screens/product_details_screen.dart';
 
@@ -37,6 +38,13 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardPadding = ResponsiveUtil.getCardPadding(context);
+    final imageSize = ResponsiveUtil.getContainerSize(context, baseSize: 80);
+    final nameFontSize = ResponsiveUtil.getFontSize(context, baseSize: 16);
+    final skuFontSize = ResponsiveUtil.getFontSize(context, baseSize: 13);
+    final stockFontSize = ResponsiveUtil.getFontSize(context, baseSize: 14);
+    final spacing = ResponsiveUtil.getSpacing(context);
+    
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -49,8 +57,8 @@ class ProductCard extends StatelessWidget {
         },
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
+          margin: EdgeInsets.only(bottom: spacing - 4),
+          padding: EdgeInsets.all(cardPadding),
           decoration: BoxDecoration(
             color: AppColors.cardBackground,
             borderRadius: BorderRadius.circular(12),
@@ -68,18 +76,18 @@ class ProductCard extends StatelessWidget {
         children: [
           // Product Image
           Container(
-            width: 80,
-            height: 80,
+            width: imageSize,
+            height: imageSize,
             decoration: BoxDecoration(
               color: AppColors.gray200,
               borderRadius: BorderRadius.circular(8),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: _buildProductImage(),
+              child: _buildProductImage(context),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: spacing),
           
           // Product Details
           Expanded(
@@ -90,52 +98,55 @@ class ProductCard extends StatelessWidget {
                 Text(
                   product.name,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: nameFontSize,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: ResponsiveUtil.isSmallScreen(context) ? 4 : 6),
                 
                 // SKU
                 Text(
                   product.sku,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: skuFontSize,
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: spacing - 4),
                 
                 // Stock and Change
                 Row(
                   children: [
-                    Text(
-                      '${product.stock} in Stock',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                    Flexible(
+                      child: Text(
+                        '${product.stock} in Stock',
+                        style: TextStyle(
+                          fontSize: stockFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (product.stockChangePercent != 0) ...[
-                      const SizedBox(width: 8),
+                      SizedBox(width: ResponsiveUtil.isSmallScreen(context) ? 4 : 8),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             FeatherIcons.arrowDown,
-                            size: 14,
+                            size: ResponsiveUtil.getIconSize(context, baseSize: 14),
                             color: AppColors.error,
                           ),
-                          const SizedBox(width: 2),
+                          SizedBox(width: ResponsiveUtil.isSmallScreen(context) ? 1 : 2),
                           Text(
                             '${product.stockChangePercent.abs().toStringAsFixed(0)}%',
-                            style: const TextStyle(
-                              fontSize: 12,
+                            style: TextStyle(
+                              fontSize: ResponsiveUtil.getFontSize(context, baseSize: 12),
                               fontWeight: FontWeight.w600,
                               color: AppColors.error,
                             ),
@@ -150,7 +161,7 @@ class ProductCard extends StatelessWidget {
           ),
           
           // Status Badge
-          _buildStatusBadge(),
+          _buildStatusBadge(context),
         ],
       ),
         ),
@@ -162,7 +173,7 @@ class ProductCard extends StatelessWidget {
   /// 
   /// Currently displays a placeholder icon. In production, this should
   /// use [Image.network] or [Image.asset] to display the actual product image.
-  Widget _buildProductImage() {
+  Widget _buildProductImage(BuildContext context) {
     // Placeholder for product image
     // In production, use Image.network or Image.asset
     return Container(
@@ -170,7 +181,7 @@ class ProductCard extends StatelessWidget {
       child: Icon(
         FeatherIcons.image,
         color: AppColors.gray400,
-        size: 40,
+        size: ResponsiveUtil.getIconSize(context, baseSize: 40),
       ),
     );
   }
@@ -181,7 +192,7 @@ class ProductCard extends StatelessWidget {
   /// - In Stock: Green badge
   /// - Low Stock: Yellow/Amber badge
   /// - Out of Stock: Red badge
-  Widget _buildStatusBadge() {
+  Widget _buildStatusBadge(BuildContext context) {
     Color backgroundColor;
     Color textColor;
     String label;
@@ -205,7 +216,10 @@ class ProductCard extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: ResponsiveUtil.isSmallScreen(context) ? 10 : 12,
+        vertical: ResponsiveUtil.isSmallScreen(context) ? 4 : 6,
+      ),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(20),
@@ -213,7 +227,7 @@ class ProductCard extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: ResponsiveUtil.getFontSize(context, baseSize: 12),
           fontWeight: FontWeight.w600,
           color: textColor,
         ),

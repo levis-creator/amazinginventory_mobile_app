@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:feather_icons/feather_icons.dart';
 import '../models/module_item.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/utils/responsive_util.dart';
 
 /// Module list item widget displaying a single module in the modules list.
 /// 
@@ -39,6 +40,15 @@ class ModuleListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardPadding = ResponsiveUtil.getCardPadding(context);
+    final iconSize = ResponsiveUtil.getContainerSize(context, baseSize: 48);
+    final iconIconSize = ResponsiveUtil.getIconSize(context, baseSize: 24);
+    final titleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 16);
+    final subtitleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 13);
+    final countFontSize = ResponsiveUtil.getFontSize(context, baseSize: 12);
+    final arrowIconSize = ResponsiveUtil.getIconSize(context, baseSize: 20);
+    final spacing = ResponsiveUtil.getSpacing(context);
+    
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -47,8 +57,11 @@ class ModuleListItem extends StatelessWidget {
         splashColor: module.color.withValues(alpha: 0.1),
         highlightColor: module.color.withValues(alpha: 0.05),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          margin: const EdgeInsets.only(bottom: 12),
+          padding: EdgeInsets.symmetric(
+            horizontal: cardPadding,
+            vertical: cardPadding,
+          ),
+          margin: EdgeInsets.only(bottom: spacing - 4),
           decoration: BoxDecoration(
             color: AppColors.cardBackground,
             borderRadius: BorderRadius.circular(12),
@@ -61,8 +74,8 @@ class ModuleListItem extends StatelessWidget {
             children: [
               // Icon Container
               Container(
-                width: 48,
-                height: 48,
+                width: iconSize,
+                height: iconSize,
                 decoration: BoxDecoration(
                   color: module.backgroundColor,
                   borderRadius: BorderRadius.circular(12),
@@ -70,10 +83,10 @@ class ModuleListItem extends StatelessWidget {
                 child: Icon(
                   module.icon,
                   color: module.color,
-                  size: 24,
+                  size: iconIconSize,
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: spacing),
               
               // Title and Subtitle
               Expanded(
@@ -86,17 +99,18 @@ class ModuleListItem extends StatelessWidget {
                           child: Text(
                             module.title,
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: titleFontSize,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textPrimary,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (module.count != null)
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: ResponsiveUtil.isSmallScreen(context) ? 6 : 8,
+                              vertical: ResponsiveUtil.isSmallScreen(context) ? 2 : 4,
                             ),
                             decoration: BoxDecoration(
                               color: module.color.withValues(alpha: 0.1),
@@ -105,7 +119,7 @@ class ModuleListItem extends StatelessWidget {
                             child: Text(
                               '${module.count}',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: countFontSize,
                                 fontWeight: FontWeight.w600,
                                 color: module.color,
                               ),
@@ -113,26 +127,28 @@ class ModuleListItem extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: ResponsiveUtil.isSmallScreen(context) ? 2 : 4),
                     Text(
                       module.subtitle,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: subtitleFontSize,
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w400,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
               
-              const SizedBox(width: 12),
+              SizedBox(width: spacing - 4),
               
               // Arrow Icon
               Icon(
                 FeatherIcons.chevronRight,
                 color: AppColors.textSecondary,
-                size: 20,
+                size: arrowIconSize,
               ),
             ],
           ),

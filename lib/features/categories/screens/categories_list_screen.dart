@@ -3,6 +3,10 @@ import 'package:feather_icons/feather_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/navigation_service.dart';
 import 'package:amazinginventory/shared/widgets/search_bar.dart' as shared;
+import '../../../shared/widgets/add_category_modal.dart';
+import '../models/category_model.dart';
+import '../data/mock_category_repository.dart';
+import '../widgets/category_card.dart';
 
 /// Categories list screen
 /// Implements clean architecture with separation of concerns
@@ -15,11 +19,14 @@ class CategoriesListScreen extends StatefulWidget {
 
 class _CategoriesListScreenState extends State<CategoriesListScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final List<dynamic> _filteredCategories = [];
+  List<CategoryModel> _categories = [];
+  List<CategoryModel> _filteredCategories = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadCategories();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -30,12 +37,64 @@ class _CategoriesListScreenState extends State<CategoriesListScreen> {
     super.dispose();
   }
 
+  Future<void> _loadCategories() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final categories = await MockCategoryRepository.getCategories();
+      setState(() {
+        _categories = categories;
+        _filteredCategories = categories;
+        _isLoading = false;
+      });
+      _applyFilters();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading categories: $e')),
+        );
+      }
+    }
+  }
+
   void _onSearchChanged() {
-    // TODO: Implement search filtering
+    _applyFilters();
+  }
+
+  void _applyFilters() {
+    final searchQuery = _searchController.text;
+    setState(() {
+      if (searchQuery.isEmpty) {
+        _filteredCategories = _categories;
+      } else {
+        _filteredCategories = _categories.where((category) {
+          final searchLower = searchQuery.toLowerCase();
+          return category.name.toLowerCase().contains(searchLower) ||
+              (category.description?.toLowerCase().contains(searchLower) ?? false);
+        }).toList();
+      }
+    });
   }
 
   void _navigateToAddCategory() {
-    // TODO: Navigate to add category screen
+    showDialog(
+      context: context,
+      builder: (context) => AddCategoryModal(
+        onCategoryAdded: (category) {
+          setState(() {
+            _categories.add(category);
+            _filteredCategories.add(category);
+          });
+          // Optionally reload from API to get the full list
+          _loadCategories();
+        },
+      ),
+    );
   }
 
   @override
@@ -55,15 +114,22 @@ class _CategoriesListScreenState extends State<CategoriesListScreen> {
               ),
             ),
             Expanded(
-              child: _filteredCategories.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _filteredCategories.length,
-                      itemBuilder: (context, index) {
-                        return const SizedBox.shrink();
-                      },
-                    ),
+              child: _isLoading
+                  ? _buildLoadingState()
+                  : _filteredCategories.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          onRefresh: _loadCategories,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: _filteredCategories.length,
+                            itemBuilder: (context, index) {
+                              return CategoryCard(
+                                category: _filteredCategories[index],
+                              );
+                            },
+                          ),
+                        ),
             ),
           ],
         ),
@@ -78,35 +144,41 @@ class _CategoriesListScreenState extends State<CategoriesListScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    NavigationService.instance.onModuleChanged?.call(null);
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      FeatherIcons.arrowLeft,
-                      color: AppColors.textPrimary,
-                      size: 24,
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      NavigationService.instance.onModuleChanged?.call(null);
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        FeatherIcons.arrowLeft,
+                        color: AppColors.textPrimary,
+                        size: 24,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Categories',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    'Categories',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Material(
             color: AppColors.metricPurple,
@@ -132,6 +204,12 @@ class _CategoriesListScreenState extends State<CategoriesListScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(),
     );
   }
 

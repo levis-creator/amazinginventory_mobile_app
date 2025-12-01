@@ -67,6 +67,12 @@ class AppColors {
   static const Color navSelected = Color(0xFF1976D2);
   static const Color navUnselected = Color(0xFF9E9E9E);
 
+  // ==================== Auth/Accent Colors ====================
+  /// Orange accent color for authentication screens (matching design)
+  static const Color accentOrange = Color(0xFFFF6B35);
+  static const Color accentOrangeLight = Color(0xFFFFE5DC);
+  static const Color accentOrangeBorder = Color(0xFFFFB8A3);
+
   // ==================== Notification Badge ====================
   static const Color notificationBadge = Color(0xFFE53935);
 

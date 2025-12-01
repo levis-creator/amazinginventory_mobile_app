@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:feather_icons/feather_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/navigation_service.dart';
+import '../../../shared/utils/responsive_util.dart';
 import 'package:amazinginventory/shared/widgets/search_bar.dart' as shared;
+import '../models/sale_model.dart';
+import '../data/mock_sale_repository.dart';
+import '../widgets/sale_card.dart';
 
 /// Sales list screen displaying all sales transactions
 /// Implements clean architecture with separation of concerns
@@ -15,11 +19,14 @@ class SalesListScreen extends StatefulWidget {
 
 class _SalesListScreenState extends State<SalesListScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final List<dynamic> _filteredSales = [];
+  List<SaleModel> _sales = [];
+  List<SaleModel> _filteredSales = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadSales();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -30,8 +37,47 @@ class _SalesListScreenState extends State<SalesListScreen> {
     super.dispose();
   }
 
+  Future<void> _loadSales() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final sales = await MockSaleRepository.getSales();
+      setState(() {
+        _sales = sales;
+        _filteredSales = sales;
+        _isLoading = false;
+      });
+      _applyFilters();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading sales: $e')),
+        );
+      }
+    }
+  }
+
   void _onSearchChanged() {
-    // TODO: Implement search filtering
+    _applyFilters();
+  }
+
+  void _applyFilters() {
+    final searchQuery = _searchController.text;
+    setState(() {
+      if (searchQuery.isEmpty) {
+        _filteredSales = _sales;
+      } else {
+        final searchLower = searchQuery.toLowerCase();
+        _filteredSales = _sales.where((sale) {
+          return sale.customerName.toLowerCase().contains(searchLower);
+        }).toList();
+      }
+    });
   }
 
   void _navigateToAddSale() {
@@ -51,7 +97,12 @@ class _SalesListScreenState extends State<SalesListScreen> {
 
             // Search
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              padding: EdgeInsets.fromLTRB(
+                ResponsiveUtil.getHorizontalPadding(context),
+                ResponsiveUtil.getSpacing(context),
+                ResponsiveUtil.getHorizontalPadding(context),
+                ResponsiveUtil.getSpacing(context) - 4,
+              ),
               child: shared.AppSearchBar(
                 controller: _searchController,
                 hintText: 'Search sales...',
@@ -60,16 +111,24 @@ class _SalesListScreenState extends State<SalesListScreen> {
 
             // Sales List
             Expanded(
-              child: _filteredSales.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _filteredSales.length,
-                      itemBuilder: (context, index) {
-                        // TODO: Build sale card
-                        return const SizedBox.shrink();
-                      },
-                    ),
+              child: _isLoading
+                  ? _buildLoadingState()
+                  : _filteredSales.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          onRefresh: _loadSales,
+                          child: ListView.builder(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: ResponsiveUtil.getHorizontalPadding(
+                                context,
+                              ),
+                            ),
+                            itemCount: _filteredSales.length,
+                            itemBuilder: (context, index) {
+                              return SaleCard(sale: _filteredSales[index]);
+                            },
+                          ),
+                        ),
             ),
           ],
         ),
@@ -78,41 +137,54 @@ class _SalesListScreenState extends State<SalesListScreen> {
   }
 
   Widget _buildTopBar() {
+    final titleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 24);
+    final buttonFontSize = ResponsiveUtil.getFontSize(context, baseSize: 14);
+    final iconSize = ResponsiveUtil.getIconSize(context, baseSize: 24);
+    final spacing = ResponsiveUtil.getSpacing(context);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      padding: ResponsiveUtil.getTopBarPadding(context),
       color: AppColors.cardBackground,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    NavigationService.instance.onModuleChanged?.call(null);
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      FeatherIcons.arrowLeft,
-                      color: AppColors.textPrimary,
-                      size: 24,
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      NavigationService.instance.onModuleChanged?.call(null);
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: EdgeInsets.all(
+                        ResponsiveUtil.isSmallScreen(context) ? 6 : 8,
+                      ),
+                      child: Icon(
+                        FeatherIcons.arrowLeft,
+                        color: AppColors.textPrimary,
+                        size: iconSize,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Sales',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                SizedBox(width: spacing - 4),
+                Flexible(
+                  child: Text(
+                    'Sales',
+                    style: TextStyle(
+                      fontSize: titleFontSize,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Material(
             color: AppColors.metricPurple,
@@ -121,15 +193,15 @@ class _SalesListScreenState extends State<SalesListScreen> {
               onTap: _navigateToAddSale,
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResponsiveUtil.isSmallScreen(context) ? 12 : 16,
+                  vertical: ResponsiveUtil.isSmallScreen(context) ? 8 : 10,
                 ),
-                child: const Text(
+                child: Text(
                   'Add Sale',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: buttonFontSize,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -141,25 +213,49 @@ class _SalesListScreenState extends State<SalesListScreen> {
     );
   }
 
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(),
+    );
+  }
+
   Widget _buildEmptyState() {
+    final iconSize = ResponsiveUtil.getContainerSize(context, baseSize: 64);
+    final titleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 18);
+    final subtitleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 14);
+    final spacing = ResponsiveUtil.getSpacing(context);
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(FeatherIcons.shoppingCart, size: 64, color: AppColors.gray400),
-          const SizedBox(height: 16),
+          Icon(
+            FeatherIcons.shoppingCart,
+            size: iconSize,
+            color: AppColors.gray400,
+          ),
+          SizedBox(height: spacing),
           Text(
             'No sales found',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: titleFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Try adjusting your search or filters',
-            style: TextStyle(fontSize: 14, color: AppColors.textTertiary),
+          SizedBox(height: spacing - 4),
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: ResponsiveUtil.getHorizontalPadding(context),
+            ),
+            child: Text(
+              'Try adjusting your search or filters',
+              style: TextStyle(
+                fontSize: subtitleFontSize,
+                color: AppColors.textTertiary,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ),
         ],
       ),

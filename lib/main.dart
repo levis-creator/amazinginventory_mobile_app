@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:feather_icons/feather_icons.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_colors.dart';
 import 'core/constants/app_constants.dart';
 import 'core/routes/app_router.dart';
 import 'core/services/navigation_service.dart';
+import 'core/di/service_locator.dart';
+import 'shared/utils/responsive_util.dart';
 import 'features/inventory/screens/add_product_screen.dart';
+import 'features/auth/cubit/auth_cubit.dart';
+import 'features/auth/cubit/auth_state.dart';
+import 'features/auth/screens/welcome_screen.dart';
 
 /// Main entry point of the Amazing Inventory Flutter application.
 ///
@@ -22,8 +28,11 @@ import 'features/inventory/screens/add_product_screen.dart';
 /// - More (Modules list)
 ///
 /// A floating action button in the center provides quick actions.
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize dependency injection
+  await setupServiceLocator();
 
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(
@@ -63,6 +72,7 @@ class MyApp extends StatefulWidget {
 /// - Floating action button menu state
 /// - Button rotation animation
 /// - Navigation service integration
+/// - Authentication state management
 class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
   /// Current active tab index (0-3)
   int _currentIndex = AppConstants.homeIndex;
@@ -82,9 +92,13 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
   /// Scaffold context stored for use in modal bottom sheets
   BuildContext? _scaffoldContext;
 
+  // Authentication cubit from service locator
+  late final AuthCubit _authCubit;
+
   @override
   void initState() {
     super.initState();
+    _initializeAuth();
     _initializeAnimations();
     // Register navigation service callbacks for decoupled navigation
     NavigationService.instance.onTabChanged = (index) {
@@ -108,6 +122,15 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
         _currentModuleId = moduleId;
       });
     };
+  }
+
+  /// Initialize authentication and check auth status.
+  void _initializeAuth() {
+    // Get AuthCubit from service locator
+    _authCubit = getIt<AuthCubit>();
+    
+    // Check authentication status on app start
+    _authCubit.checkAuth();
   }
 
   /// Initializes the floating action button rotation animation.
@@ -134,6 +157,7 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     _buttonAnimationController?.dispose();
+    _authCubit.close();
     super.dispose();
   }
 
@@ -224,28 +248,61 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: AppConstants.appName,
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: GestureDetector(
-        onTap: () {
-          // Close menu when tapping outside
-          if (_isMenuOpen) {
-            _toggleMenu();
-          }
-        },
-        child: Builder(
-          builder: (context) {
-            // Store the scaffold context for use in modal
-            _scaffoldContext = context;
-            return Scaffold(
-              body: _buildCurrentScreen(),
-              bottomNavigationBar: _buildBottomNavBar(context),
-              extendBody: false,
+    return BlocProvider<AuthCubit>(
+      create: (context) => _authCubit,
+      child: BlocBuilder<AuthCubit, AuthState>(
+        builder: (context, authState) {
+          // Show welcome/login screen if not authenticated
+          if (authState is AuthUnauthenticated || authState is AuthInitial) {
+            return MaterialApp(
+              title: AppConstants.appName,
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              home: const WelcomeScreen(),
             );
-          },
-        ),
+          }
+
+          // Show loading screen while checking auth
+          if (authState is AuthLoading) {
+            return MaterialApp(
+              title: AppConstants.appName,
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              home: Scaffold(
+                backgroundColor: AppColors.scaffoldBackground,
+                body: const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            );
+          }
+
+          // Show main app if authenticated
+          return MaterialApp(
+            title: AppConstants.appName,
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            home: GestureDetector(
+              onTap: () {
+                // Close menu when tapping outside
+                if (_isMenuOpen) {
+                  _toggleMenu();
+                }
+              },
+              child: Builder(
+                builder: (context) {
+                  // Store the scaffold context for use in modal
+                  _scaffoldContext = context;
+                  return Scaffold(
+                    body: _buildCurrentScreen(),
+                    bottomNavigationBar: _buildBottomNavBar(context),
+                    extendBody: false,
+                  );
+                },
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -274,6 +331,19 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
   /// - Safe area padding handling
   Widget _buildBottomNavBar(BuildContext scaffoldContext) {
     final bottomPadding = MediaQuery.of(scaffoldContext).padding.bottom;
+    // Calculate responsive values once using the scaffold context
+    final iconSize = ResponsiveUtil.getIconSize(scaffoldContext, baseSize: 24);
+    final fontSize = ResponsiveUtil.getFontSize(scaffoldContext, baseSize: 12);
+    final buttonSize = ResponsiveUtil.getContainerSize(
+      scaffoldContext,
+      baseSize: 56,
+    );
+    final buttonIconSize = ResponsiveUtil.getIconSize(
+      scaffoldContext,
+      baseSize: 28,
+    );
+    final screenWidth = MediaQuery.of(scaffoldContext).size.width;
+    final buttonOffset = buttonSize / 2;
 
     return Container(
       color: AppColors.cardBackground,
@@ -302,8 +372,8 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
                   type: BottomNavigationBarType.fixed,
                   selectedItemColor: AppColors.metricPurple,
                   unselectedItemColor: AppColors.navUnselected,
-                  selectedFontSize: 12,
-                  unselectedFontSize: 12,
+                  selectedFontSize: fontSize,
+                  unselectedFontSize: fontSize,
                   selectedLabelStyle: const TextStyle(
                     fontWeight: FontWeight.w600,
                   ),
@@ -312,27 +382,33 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
                   ),
                   elevation: 0,
                   backgroundColor: Colors.transparent,
-                  items: const [
+                  items: [
                     BottomNavigationBarItem(
-                      icon: Icon(FeatherIcons.home, size: 24),
-                      activeIcon: Icon(FeatherIcons.home, size: 24),
+                      icon: Icon(FeatherIcons.home, size: iconSize),
+                      activeIcon: Icon(FeatherIcons.home, size: iconSize),
                       label: 'Home',
                     ),
                     BottomNavigationBarItem(
-                      icon: Icon(FeatherIcons.grid, size: 24),
-                      activeIcon: Icon(FeatherIcons.grid, size: 24),
+                      icon: Icon(FeatherIcons.grid, size: iconSize),
+                      activeIcon: Icon(FeatherIcons.grid, size: iconSize),
                       label: 'Inventory',
                     ),
                     // Center placeholder - will be covered by the plus button
-                    BottomNavigationBarItem(icon: SizedBox.shrink(), label: ''),
+                    const BottomNavigationBarItem(
+                      icon: SizedBox.shrink(),
+                      label: '',
+                    ),
                     BottomNavigationBarItem(
-                      icon: Icon(FeatherIcons.bell, size: 24),
-                      activeIcon: Icon(FeatherIcons.bell, size: 24),
+                      icon: Icon(FeatherIcons.bell, size: iconSize),
+                      activeIcon: Icon(FeatherIcons.bell, size: iconSize),
                       label: 'Notifications',
                     ),
                     BottomNavigationBarItem(
-                      icon: Icon(FeatherIcons.moreHorizontal, size: 24),
-                      activeIcon: Icon(FeatherIcons.moreHorizontal, size: 24),
+                      icon: Icon(FeatherIcons.moreHorizontal, size: iconSize),
+                      activeIcon: Icon(
+                        FeatherIcons.moreHorizontal,
+                        size: iconSize,
+                      ),
                       label: 'More',
                     ),
                   ],
@@ -340,8 +416,8 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
               ),
               // Center Plus/X Button with rotation animation
               Positioned(
-                left: MediaQuery.of(context).size.width / 2 - 28,
-                top: -28,
+                left: screenWidth / 2 - buttonOffset,
+                top: -buttonOffset,
                 child: RotationTransition(
                   turns:
                       _buttonRotationAnimation ??
@@ -354,8 +430,8 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
                       onTap: _toggleMenu,
                       customBorder: const CircleBorder(),
                       child: Container(
-                        width: 56,
-                        height: 56,
+                        width: buttonSize,
+                        height: buttonSize,
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppColors.metricPurple,
@@ -363,7 +439,7 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
                         child: Icon(
                           _isMenuOpen ? FeatherIcons.x : FeatherIcons.plus,
                           color: Colors.white,
-                          size: 28,
+                          size: buttonIconSize,
                         ),
                       ),
                     ),
@@ -392,8 +468,21 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
     BuildContext modalContext,
     BuildContext scaffoldContext,
   ) {
+    // Calculate responsive values once using the modal context
+    final horizontalPadding = ResponsiveUtil.getHorizontalPadding(modalContext);
+    final verticalPadding = ResponsiveUtil.getVerticalPadding(modalContext);
+    final spacing = ResponsiveUtil.getSpacing(modalContext);
+    final handleBarSize = ResponsiveUtil.getContainerSize(
+      modalContext,
+      baseSize: 40,
+    );
+    final bottomPadding = MediaQuery.of(modalContext).padding.bottom;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -404,9 +493,9 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
           children: [
             // Handle bar
             Container(
-              width: 40,
+              width: handleBarSize,
               height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
+              margin: EdgeInsets.only(bottom: spacing),
               decoration: BoxDecoration(
                 color: AppColors.gray400,
                 borderRadius: BorderRadius.circular(2),
@@ -414,6 +503,7 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
             ),
             // Menu items
             _buildMenuItem(
+              context: modalContext,
               index: 0,
               icon: FeatherIcons.plus,
               iconColor: AppColors.success,
@@ -436,8 +526,9 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
                 });
               },
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: spacing - 4),
             _buildMenuItem(
+              context: modalContext,
               index: 1,
               icon: FeatherIcons.shoppingCart,
               iconColor: const Color(0xFF2196F3), // Blue
@@ -455,8 +546,9 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
                 );
               },
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: spacing - 4),
             _buildMenuItem(
+              context: modalContext,
               index: 2,
               icon: FeatherIcons.creditCard,
               iconColor: AppColors.metricPurple,
@@ -474,7 +566,7 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
                 );
               },
             ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom),
+            SizedBox(height: bottomPadding),
           ],
         ),
       ),
@@ -488,6 +580,7 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
   /// - Label text
   /// - Tap handler
   ///
+  /// [context] BuildContext for responsive sizing
   /// [index] Item index (for future use)
   /// [icon] Icon to display
   /// [iconColor] Color of the icon
@@ -495,6 +588,7 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
   /// [label] Text label for the menu item
   /// [onTap] Callback when the item is tapped
   Widget _buildMenuItem({
+    required BuildContext context,
     required int index,
     required IconData icon,
     required Color iconColor,
@@ -502,6 +596,12 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
     required String label,
     required VoidCallback onTap,
   }) {
+    final iconSize = ResponsiveUtil.getContainerSize(context, baseSize: 40);
+    final iconIconSize = ResponsiveUtil.getIconSize(context, baseSize: 20);
+    final labelFontSize = ResponsiveUtil.getFontSize(context, baseSize: 15);
+    final spacing = ResponsiveUtil.getSpacing(context);
+    final horizontalPadding = ResponsiveUtil.getHorizontalPadding(context);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -510,24 +610,27 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
         splashColor: AppColors.metricPurple.withValues(alpha: 0.1),
         highlightColor: AppColors.metricPurple.withValues(alpha: 0.05),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: spacing - 4,
+          ),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: iconSize,
+                height: iconSize,
                 decoration: BoxDecoration(
                   color: iconBackground,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: iconColor, size: 20),
+                child: Icon(icon, color: iconColor, size: iconIconSize),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: spacing),
               Expanded(
                 child: Text(
                   label,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: labelFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                   ),

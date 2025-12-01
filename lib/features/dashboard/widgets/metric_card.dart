@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:feather_icons/feather_icons.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/utils/responsive_util.dart';
 
 /// A reusable metric card widget displaying key inventory metrics.
 /// 
@@ -62,8 +63,15 @@ class MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardPadding = ResponsiveUtil.getCardPadding(context);
+    final iconSize = ResponsiveUtil.getContainerSize(context, baseSize: 52);
+    final valueFontSize = ResponsiveUtil.getFontSize(context, baseSize: 26);
+    final labelFontSize = ResponsiveUtil.getFontSize(context, baseSize: 13);
+    final periodFontSize = ResponsiveUtil.getFontSize(context, baseSize: 11);
+    final spacing = ResponsiveUtil.getSpacing(context);
+    
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(16),
@@ -82,9 +90,12 @@ class MetricCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildIconContainer(),
+              _buildIconContainer(context, iconSize),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResponsiveUtil.isSmallScreen(context) ? 8 : 10,
+                  vertical: ResponsiveUtil.isSmallScreen(context) ? 4 : 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.gray100,
                   borderRadius: BorderRadius.circular(8),
@@ -95,15 +106,15 @@ class MetricCard extends StatelessWidget {
                     Text(
                       period,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: periodFontSize,
                         color: AppColors.textTertiary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: ResponsiveUtil.isSmallScreen(context) ? 2 : 4),
                     Icon(
                       FeatherIcons.chevronDown,
-                      size: 18,
+                      size: ResponsiveUtil.getIconSize(context, baseSize: 18),
                       color: AppColors.textTertiary,
                     ),
                   ],
@@ -111,37 +122,40 @@ class MetricCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: spacing + 2),
           Text(
             value,
             style: TextStyle(
-              fontSize: 26,
+              fontSize: valueFontSize,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
               letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: spacing - 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: labelFontSize,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               Container(
-                padding: const EdgeInsets.all(5),
+                padding: EdgeInsets.all(ResponsiveUtil.isSmallScreen(context) ? 4 : 5),
                 decoration: BoxDecoration(
                   color: AppColors.successLight,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Icon(
+                child: Icon(
                   FeatherIcons.arrowUp,
-                  size: 16,
+                  size: ResponsiveUtil.getIconSize(context, baseSize: 16),
                   color: AppColors.success,
                 ),
               ),
@@ -156,12 +170,14 @@ class MetricCard extends StatelessWidget {
   /// 
   /// If the label is "Out of Stock", displays the icon with an X overlay.
   /// Otherwise, displays a standard icon container (circular or rounded square).
-  Widget _buildIconContainer() {
+  Widget _buildIconContainer(BuildContext context, double iconSize) {
+    final iconIconSize = ResponsiveUtil.getIconSize(context, baseSize: 26);
+    
     // Special handling for "Out of Stock" icon with X overlay
     if (label == 'Out of Stock') {
       return Container(
-        width: 52,
-        height: 52,
+        width: iconSize,
+        height: iconSize,
         decoration: BoxDecoration(
           color: iconColor,
           borderRadius: BorderRadius.circular(10),
@@ -172,21 +188,21 @@ class MetricCard extends StatelessWidget {
             Icon(
               icon,
               color: Colors.white,
-              size: 26,
+              size: iconIconSize,
             ),
             Positioned(
-              top: 8,
-              right: 8,
+              top: ResponsiveUtil.isSmallScreen(context) ? 6 : 8,
+              right: ResponsiveUtil.isSmallScreen(context) ? 6 : 8,
               child: Container(
-                width: 16,
-                height: 16,
+                width: ResponsiveUtil.getContainerSize(context, baseSize: 16),
+                height: ResponsiveUtil.getContainerSize(context, baseSize: 16),
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   FeatherIcons.x,
-                  size: 10,
+                  size: ResponsiveUtil.getIconSize(context, baseSize: 10),
                   color: AppColors.error,
                 ),
               ),
@@ -197,8 +213,8 @@ class MetricCard extends StatelessWidget {
     }
 
     return Container(
-      width: 52,
-      height: 52,
+      width: iconSize,
+      height: iconSize,
       decoration: BoxDecoration(
         color: iconColor,
         shape: isCircularIcon ? BoxShape.circle : BoxShape.rectangle,
@@ -207,7 +223,7 @@ class MetricCard extends StatelessWidget {
       child: Icon(
         icon,
         color: Colors.white,
-        size: 26,
+        size: iconIconSize,
       ),
     );
   }

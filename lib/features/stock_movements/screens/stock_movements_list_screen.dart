@@ -3,6 +3,9 @@ import 'package:feather_icons/feather_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/navigation_service.dart';
 import 'package:amazinginventory/shared/widgets/search_bar.dart' as shared;
+import '../models/stock_movement_model.dart';
+import '../data/mock_stock_movement_repository.dart';
+import '../widgets/stock_movement_card.dart';
 
 /// Stock movements list screen
 /// Implements clean architecture with separation of concerns
@@ -16,11 +19,14 @@ class StockMovementsListScreen extends StatefulWidget {
 
 class _StockMovementsListScreenState extends State<StockMovementsListScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final List<dynamic> _filteredMovements = [];
+  List<StockMovementModel> _movements = [];
+  List<StockMovementModel> _filteredMovements = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadMovements();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -31,8 +37,50 @@ class _StockMovementsListScreenState extends State<StockMovementsListScreen> {
     super.dispose();
   }
 
+  Future<void> _loadMovements() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final movements = await MockStockMovementRepository.getStockMovements();
+      setState(() {
+        _movements = movements;
+        _filteredMovements = movements;
+        _isLoading = false;
+      });
+      _applyFilters();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading stock movements: $e')),
+        );
+      }
+    }
+  }
+
   void _onSearchChanged() {
-    // TODO: Implement search filtering
+    _applyFilters();
+  }
+
+  void _applyFilters() {
+    final searchQuery = _searchController.text;
+    setState(() {
+      if (searchQuery.isEmpty) {
+        _filteredMovements = _movements;
+      } else {
+        final searchLower = searchQuery.toLowerCase();
+        _filteredMovements = _movements.where((movement) {
+          return (movement.product?.name.toLowerCase().contains(searchLower) ?? false) ||
+              (movement.product?.sku.toLowerCase().contains(searchLower) ?? false) ||
+              movement.reason.toLowerCase().contains(searchLower) ||
+              (movement.notes?.toLowerCase().contains(searchLower) ?? false);
+        }).toList();
+      }
+    });
   }
 
   void _navigateToAddMovement() {
@@ -56,15 +104,22 @@ class _StockMovementsListScreenState extends State<StockMovementsListScreen> {
               ),
             ),
             Expanded(
-              child: _filteredMovements.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _filteredMovements.length,
-                      itemBuilder: (context, index) {
-                        return const SizedBox.shrink();
-                      },
-                    ),
+              child: _isLoading
+                  ? _buildLoadingState()
+                  : _filteredMovements.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          onRefresh: _loadMovements,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: _filteredMovements.length,
+                            itemBuilder: (context, index) {
+                              return StockMovementCard(
+                                movement: _filteredMovements[index],
+                              );
+                            },
+                          ),
+                        ),
             ),
           ],
         ),
@@ -79,35 +134,41 @@ class _StockMovementsListScreenState extends State<StockMovementsListScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    NavigationService.instance.onModuleChanged?.call(null);
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      FeatherIcons.arrowLeft,
-                      color: AppColors.textPrimary,
-                      size: 24,
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      NavigationService.instance.onModuleChanged?.call(null);
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        FeatherIcons.arrowLeft,
+                        color: AppColors.textPrimary,
+                        size: 24,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Stock Movements',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    'Stock Movements',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Material(
             color: AppColors.metricPurple,
@@ -133,6 +194,12 @@ class _StockMovementsListScreenState extends State<StockMovementsListScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(),
     );
   }
 

@@ -3,6 +3,9 @@ import 'package:feather_icons/feather_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/navigation_service.dart';
 import 'package:amazinginventory/shared/widgets/search_bar.dart' as shared;
+import '../models/supplier_model.dart';
+import '../data/mock_supplier_repository.dart';
+import '../widgets/supplier_card.dart';
 
 /// Suppliers list screen
 /// Implements clean architecture with separation of concerns
@@ -15,11 +18,14 @@ class SuppliersListScreen extends StatefulWidget {
 
 class _SuppliersListScreenState extends State<SuppliersListScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final List<dynamic> _filteredSuppliers = [];
+  List<SupplierModel> _suppliers = [];
+  List<SupplierModel> _filteredSuppliers = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadSuppliers();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -30,8 +36,50 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
     super.dispose();
   }
 
+  Future<void> _loadSuppliers() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final suppliers = await MockSupplierRepository.getSuppliers();
+      setState(() {
+        _suppliers = suppliers;
+        _filteredSuppliers = suppliers;
+        _isLoading = false;
+      });
+      _applyFilters();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading suppliers: $e')),
+        );
+      }
+    }
+  }
+
   void _onSearchChanged() {
-    // TODO: Implement search filtering
+    _applyFilters();
+  }
+
+  void _applyFilters() {
+    final searchQuery = _searchController.text;
+    setState(() {
+      if (searchQuery.isEmpty) {
+        _filteredSuppliers = _suppliers;
+      } else {
+        final searchLower = searchQuery.toLowerCase();
+        _filteredSuppliers = _suppliers.where((supplier) {
+          return supplier.name.toLowerCase().contains(searchLower) ||
+              (supplier.contact?.toLowerCase().contains(searchLower) ?? false) ||
+              (supplier.email?.toLowerCase().contains(searchLower) ?? false) ||
+              (supplier.address?.toLowerCase().contains(searchLower) ?? false);
+        }).toList();
+      }
+    });
   }
 
   void _navigateToAddSupplier() {
@@ -55,15 +103,22 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
               ),
             ),
             Expanded(
-              child: _filteredSuppliers.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _filteredSuppliers.length,
-                      itemBuilder: (context, index) {
-                        return const SizedBox.shrink();
-                      },
-                    ),
+              child: _isLoading
+                  ? _buildLoadingState()
+                  : _filteredSuppliers.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          onRefresh: _loadSuppliers,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: _filteredSuppliers.length,
+                            itemBuilder: (context, index) {
+                              return SupplierCard(
+                                supplier: _filteredSuppliers[index],
+                              );
+                            },
+                          ),
+                        ),
             ),
           ],
         ),
@@ -78,35 +133,41 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    NavigationService.instance.onModuleChanged?.call(null);
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      FeatherIcons.arrowLeft,
-                      color: AppColors.textPrimary,
-                      size: 24,
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      NavigationService.instance.onModuleChanged?.call(null);
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        FeatherIcons.arrowLeft,
+                        color: AppColors.textPrimary,
+                        size: 24,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Suppliers',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    'Suppliers',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Material(
             color: AppColors.metricPurple,
@@ -132,6 +193,12 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(),
     );
   }
 

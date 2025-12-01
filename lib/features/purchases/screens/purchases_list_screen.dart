@@ -3,6 +3,9 @@ import 'package:feather_icons/feather_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/navigation_service.dart';
 import 'package:amazinginventory/shared/widgets/search_bar.dart' as shared;
+import '../models/purchase_model.dart';
+import '../data/mock_purchase_repository.dart';
+import '../widgets/purchase_card.dart';
 
 /// Purchases list screen displaying all purchase orders
 /// Implements clean architecture with separation of concerns
@@ -15,11 +18,14 @@ class PurchasesListScreen extends StatefulWidget {
 
 class _PurchasesListScreenState extends State<PurchasesListScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final List<dynamic> _filteredPurchases = [];
+  List<PurchaseModel> _purchases = [];
+  List<PurchaseModel> _filteredPurchases = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadPurchases();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -30,8 +36,47 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
     super.dispose();
   }
 
+  Future<void> _loadPurchases() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final purchases = await MockPurchaseRepository.getPurchases();
+      setState(() {
+        _purchases = purchases;
+        _filteredPurchases = purchases;
+        _isLoading = false;
+      });
+      _applyFilters();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading purchases: $e')),
+        );
+      }
+    }
+  }
+
   void _onSearchChanged() {
-    // TODO: Implement search filtering
+    _applyFilters();
+  }
+
+  void _applyFilters() {
+    final searchQuery = _searchController.text;
+    setState(() {
+      if (searchQuery.isEmpty) {
+        _filteredPurchases = _purchases;
+      } else {
+        final searchLower = searchQuery.toLowerCase();
+        _filteredPurchases = _purchases.where((purchase) {
+          return purchase.supplier?.name.toLowerCase().contains(searchLower) ?? false;
+        }).toList();
+      }
+    });
   }
 
   void _navigateToAddPurchase() {
@@ -55,15 +100,22 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
               ),
             ),
             Expanded(
-              child: _filteredPurchases.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _filteredPurchases.length,
-                      itemBuilder: (context, index) {
-                        return const SizedBox.shrink();
-                      },
-                    ),
+              child: _isLoading
+                  ? _buildLoadingState()
+                  : _filteredPurchases.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          onRefresh: _loadPurchases,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: _filteredPurchases.length,
+                            itemBuilder: (context, index) {
+                              return PurchaseCard(
+                                purchase: _filteredPurchases[index],
+                              );
+                            },
+                          ),
+                        ),
             ),
           ],
         ),
@@ -78,35 +130,41 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    NavigationService.instance.onModuleChanged?.call(null);
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      FeatherIcons.arrowLeft,
-                      color: AppColors.textPrimary,
-                      size: 24,
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      NavigationService.instance.onModuleChanged?.call(null);
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        FeatherIcons.arrowLeft,
+                        color: AppColors.textPrimary,
+                        size: 24,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Purchases',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    'Purchases',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Material(
             color: AppColors.metricPurple,
@@ -132,6 +190,12 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(),
     );
   }
 

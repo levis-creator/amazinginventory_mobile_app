@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:feather_icons/feather_icons.dart';
 import 'package:amazinginventory/core/theme/app_colors.dart';
+import '../utils/responsive_util.dart';
 
 /// Reusable search bar widget for filtering lists.
 /// 
@@ -55,8 +56,13 @@ class AppSearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final searchBarHeight = ResponsiveUtil.getSearchBarHeight(context);
+    final hintFontSize = ResponsiveUtil.getFontSize(context, baseSize: 14);
+    final iconSize = ResponsiveUtil.getIconSize(context, baseSize: 22);
+    final horizontalPadding = ResponsiveUtil.getHorizontalPadding(context);
+    
     return Container(
-      height: 48,
+      height: searchBarHeight,
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(12),
@@ -72,21 +78,21 @@ class AppSearchBar extends StatelessWidget {
           hintText: hintText,
           hintStyle: TextStyle(
             color: AppColors.textTertiary,
-            fontSize: 14,
+            fontSize: hintFontSize,
           ),
           prefixIcon: Icon(
             FeatherIcons.search,
             color: AppColors.textTertiary,
-            size: 22,
+            size: iconSize,
           ),
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           filled: true,
           fillColor: Colors.transparent,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: ResponsiveUtil.isSmallScreen(context) ? 12 : 14,
           ),
         ),
       ),
