@@ -68,6 +68,8 @@ class AuthCubit extends Cubit<AuthState> {
   /// Calls the logout endpoint to revoke the token on the server,
   /// then emits AuthUnauthenticated state to redirect to login screen.
   Future<void> logout() async {
+    // Emit loading state to show loading screen
+    emit(const AuthLoading());
     try {
       // Call repository logout which uses the logout endpoint
       await _authRepository.logout();

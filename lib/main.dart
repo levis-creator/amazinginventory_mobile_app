@@ -250,59 +250,92 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     return BlocProvider<AuthCubit>(
       create: (context) => _authCubit,
-      child: BlocBuilder<AuthCubit, AuthState>(
-        builder: (context, authState) {
-          // Show welcome/login screen if not authenticated
-          if (authState is AuthUnauthenticated || authState is AuthInitial) {
-            return MaterialApp(
-              title: AppConstants.appName,
-              debugShowCheckedModeBanner: false,
-              theme: AppTheme.lightTheme,
-              home: const WelcomeScreen(),
-            );
+      child: BlocListener<AuthCubit, AuthState>(
+        listener: (context, authState) {
+          // Reset navigation to home screen when user logs in
+          // This ensures users always start at home screen after authentication
+          if (authState is AuthAuthenticated) {
+            if (mounted) {
+              // Reset synchronously before BlocBuilder rebuilds
+              _currentIndex = AppConstants.homeIndex;
+              _currentModuleId = null;
+              // Trigger rebuild to reflect the change
+              setState(() {});
+            }
           }
+        },
+        child: BlocBuilder<AuthCubit, AuthState>(
+          builder: (context, authState) {
+            // Show welcome/login screen if not authenticated
+            if (authState is AuthUnauthenticated || authState is AuthInitial) {
+              return MaterialApp(
+                title: AppConstants.appName,
+                debugShowCheckedModeBanner: false,
+                theme: AppTheme.lightTheme,
+                home: const WelcomeScreen(),
+              );
+            }
 
-          // Show loading screen while checking auth
-          if (authState is AuthLoading) {
+            // Show loading screen while checking auth
+            if (authState is AuthLoading) {
+              return MaterialApp(
+                title: AppConstants.appName,
+                debugShowCheckedModeBanner: false,
+                theme: AppTheme.lightTheme,
+                home: Scaffold(
+                  backgroundColor: AppColors.scaffoldBackground,
+                  body: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              );
+            }
+
+            // Show main app if authenticated
+            // Use a key to ensure MaterialApp is completely rebuilt when auth state changes
+            // Navigation state is reset by BlocListener when AuthAuthenticated is emitted
+            // Additional safety check: ensure we're on home screen when authenticated app is shown
+            if (authState is AuthAuthenticated && 
+                (_currentIndex != AppConstants.homeIndex || _currentModuleId != null)) {
+              // Force reset to home screen (handles edge cases where listener might not have fired yet)
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _currentIndex = AppConstants.homeIndex;
+                    _currentModuleId = null;
+                  });
+                }
+              });
+            }
+            
             return MaterialApp(
+              key: ValueKey('authenticated_app'),
               title: AppConstants.appName,
               debugShowCheckedModeBanner: false,
               theme: AppTheme.lightTheme,
-              home: Scaffold(
-                backgroundColor: AppColors.scaffoldBackground,
-                body: const Center(
-                  child: CircularProgressIndicator(),
+              home: GestureDetector(
+                onTap: () {
+                  // Close menu when tapping outside
+                  if (_isMenuOpen) {
+                    _toggleMenu();
+                  }
+                },
+                child: Builder(
+                  builder: (context) {
+                    // Store the scaffold context for use in modal
+                    _scaffoldContext = context;
+                    return Scaffold(
+                      backgroundColor: AppColors.scaffoldBackground,
+                      body: _buildCurrentScreen(),
+                      bottomNavigationBar: _buildBottomNavBar(context),
+                      extendBody: false,
+                    );
+                  },
                 ),
               ),
             );
-          }
-
-          // Show main app if authenticated
-          return MaterialApp(
-            title: AppConstants.appName,
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
-            home: GestureDetector(
-              onTap: () {
-                // Close menu when tapping outside
-                if (_isMenuOpen) {
-                  _toggleMenu();
-                }
-              },
-              child: Builder(
-                builder: (context) {
-                  // Store the scaffold context for use in modal
-                  _scaffoldContext = context;
-                  return Scaffold(
-                    body: _buildCurrentScreen(),
-                    bottomNavigationBar: _buildBottomNavBar(context),
-                    extendBody: false,
-                  );
-                },
-              ),
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -311,6 +344,7 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
   ///
   /// If on the "More" tab and a module is selected, shows the module screen.
   /// Otherwise, shows the screen for the current tab index.
+  /// Always returns a valid widget (defaults to DashboardScreen if invalid).
   Widget _buildCurrentScreen() {
     // If on More tab and a module is selected, show module screen
     if (_currentIndex == AppConstants.moreIndex && _currentModuleId != null) {
@@ -320,6 +354,7 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
       }
     }
     // Otherwise, show the screen for current tab
+    // getScreenByIndex always returns a valid widget (defaults to DashboardScreen)
     return AppRouter.getScreenByIndex(_currentIndex);
   }
 

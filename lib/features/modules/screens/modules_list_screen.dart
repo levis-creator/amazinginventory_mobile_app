@@ -159,47 +159,59 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
           );
         }
       },
-      child: Scaffold(
-        backgroundColor: AppColors.scaffoldBackground,
-        body: SafeArea(
-          child: Column(
+      child: BlocBuilder<AuthCubit, AuthState>(
+        builder: (context, state) {
+          final isLoggingOut = state is AuthLoading;
+
+          return Stack(
             children: [
-              // Top Bar
-              _buildTopBar(),
+              Scaffold(
+                backgroundColor: AppColors.scaffoldBackground,
+                body: SafeArea(
+                  child: Column(
+                    children: [
+                      // Top Bar
+                      _buildTopBar(),
 
-              // Search
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  ResponsiveUtil.getHorizontalPadding(context),
-                  ResponsiveUtil.getSpacing(context),
-                  ResponsiveUtil.getHorizontalPadding(context),
-                  ResponsiveUtil.getSpacing(context) - 4,
-                ),
-                child: shared.AppSearchBar(
-                  controller: _searchController,
-                  hintText: 'Search modules...',
-                ),
-              ),
-
-              // Modules List
-              Expanded(
-                child: _filteredModules.isEmpty
-                    ? _buildEmptyState()
-                    : ListView(
-                        padding: EdgeInsets.all(
+                      // Search
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
                           ResponsiveUtil.getHorizontalPadding(context),
+                          ResponsiveUtil.getSpacing(context),
+                          ResponsiveUtil.getHorizontalPadding(context),
+                          ResponsiveUtil.getSpacing(context) - 4,
                         ),
-                        children: _filteredModules.map((module) {
-                          return ModuleListItem(
-                            module: module,
-                            onTap: () => _navigateToModule(module),
-                          );
-                        }).toList(),
+                        child: shared.AppSearchBar(
+                          controller: _searchController,
+                          hintText: 'Search modules...',
+                        ),
                       ),
+
+                      // Modules List
+                      Expanded(
+                        child: _filteredModules.isEmpty
+                            ? _buildEmptyState()
+                            : ListView(
+                                padding: EdgeInsets.all(
+                                  ResponsiveUtil.getHorizontalPadding(context),
+                                ),
+                                children: _filteredModules.map((module) {
+                                  return ModuleListItem(
+                                    module: module,
+                                    onTap: () => _navigateToModule(module),
+                                  );
+                                }).toList(),
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+              // Loading overlay when logging out
+              if (isLoggingOut) _buildLogoutLoadingOverlay(),
             ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -312,8 +324,8 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
   Future<void> _handleLogout() async {
     try {
       // Call logout from AuthCubit
-      // This will emit AuthUnauthenticated state, which will trigger
-      // the BlocBuilder in main.dart to show the WelcomeScreen
+      // This will emit AuthLoading state first, then AuthUnauthenticated
+      // The BlocBuilder will show loading overlay, then main.dart will show WelcomeScreen
       await context.read<AuthCubit>().logout();
       // Navigation is automatically handled by BlocBuilder in main.dart
     } catch (e) {
@@ -327,6 +339,40 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
         );
       }
     }
+  }
+
+  Widget _buildLogoutLoadingOverlay() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.5),
+      child: Center(
+        child: Container(
+          padding: EdgeInsets.all(ResponsiveUtil.getSpacing(context) * 2),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColors.metricPurple,
+                ),
+              ),
+              SizedBox(height: ResponsiveUtil.getSpacing(context)),
+              Text(
+                'Logging out...',
+                style: TextStyle(
+                  fontSize: ResponsiveUtil.getFontSize(context, baseSize: 16),
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildEmptyState() {

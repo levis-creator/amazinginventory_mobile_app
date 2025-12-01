@@ -147,15 +147,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: BlocConsumer<AuthCubit, AuthState>(
           listener: (context, state) {
             if (state is AuthAuthenticated) {
-              // Navigate to home by clearing all routes
-              // The BlocBuilder in main.dart will automatically show the main app
-              // Use pushAndRemoveUntil to clear the entire navigation stack
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (context) => const SizedBox.shrink(),
-                ),
-                (route) => false, // Remove all previous routes
-              );
+              // The BlocBuilder in main.dart will automatically rebuild the entire MaterialApp
+              // and show the main app. No manual navigation needed.
+              // The old MaterialApp (with register screen) will be completely replaced.
             } else if (state is AuthError) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
