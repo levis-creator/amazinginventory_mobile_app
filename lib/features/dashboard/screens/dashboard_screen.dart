@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:feather_icons/feather_icons.dart';
 import '../widgets/metric_card.dart';
-import '../widgets/stock_flow_chart.dart';
+import '../widgets/revenue_expenses_chart.dart';
 import '../../../shared/utils/greeting_util.dart';
 import '../../../shared/utils/responsive_util.dart';
 import '../../../shared/utils/user_util.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/navigation_service.dart';
+import '../../../core/di/service_locator.dart';
 import '../../auth/cubit/auth_cubit.dart';
 import '../../auth/cubit/auth_state.dart';
+import '../cubit/dashboard_cubit.dart';
+import '../cubit/dashboard_state.dart';
+import '../models/dashboard_stats_model.dart';
 
 /// Main dashboard screen displaying inventory overview
 /// Implements clean architecture with separation of concerns
@@ -22,48 +26,252 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Load dashboard data when screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<DashboardCubit>().loadAll();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBackground,
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            // Status Bar Spacer
-            Container(
-              height: MediaQuery.of(context).padding.top,
-              color: Colors.transparent,
-            ),
-            // Top Section with Profile and Notifications
-            _buildTopSection(),
-            
-            // Main Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: ResponsiveUtil.getHorizontalPadding(context),
-                  vertical: ResponsiveUtil.getVerticalPadding(context),
+    return BlocProvider<DashboardCubit>(
+      create: (context) => getIt<DashboardCubit>(),
+      child: Scaffold(
+        backgroundColor: AppColors.scaffoldBackground,
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              // Status Bar Spacer
+              Container(
+                height: MediaQuery.of(context).padding.top,
+                color: Colors.transparent,
+              ),
+              // Top Section with Profile and Notifications
+              _buildTopSection(),
+              
+              // Main Content with Pull-to-Refresh
+              Expanded(
+                child: BlocBuilder<DashboardCubit, DashboardState>(
+                  builder: (context, state) {
+                    return RefreshIndicator(
+                      onRefresh: () async {
+                        context.read<DashboardCubit>().refresh();
+                        // Wait a bit for the refresh to complete
+                        await Future.delayed(const Duration(milliseconds: 500));
+                      },
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: ResponsiveUtil.getHorizontalPadding(context),
+                          vertical: ResponsiveUtil.getVerticalPadding(context),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (state is DashboardLoading && 
+                                state.isLoadingStats && 
+                                state is! DashboardLoaded)
+                              _buildLoadingState()
+                            else if (state is DashboardError && state.isStatsError)
+                              _buildErrorState(context, state.message, isStats: true)
+                            else if (state is DashboardLoaded)
+                              _buildLoadedContent(context, state)
+                            else
+                              _buildLoadingState(),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Metric Cards Grid
-                    _buildMetricCards(),
-                    SizedBox(height: ResponsiveUtil.getLargeSpacing(context)),
-                    
-                    // Stock Flow Chart
-                    const StockFlowChart(),
-                    SizedBox(height: ResponsiveUtil.getLargeSpacing(context)),
-                  ],
+              ),
+            ],
+          ),
+        ),
+        // Bottom navigation is handled by main app
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Column(
+      children: [
+        _buildMetricCardsSkeleton(),
+        SizedBox(height: ResponsiveUtil.getLargeSpacing(context)),
+        _buildChartSkeleton(),
+      ],
+    );
+  }
+
+  Widget _buildErrorState(BuildContext context, String message, {required bool isStats}) {
+    final spacing = ResponsiveUtil.getSpacing(context);
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(spacing * 2),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              FeatherIcons.alertCircle,
+              size: 64,
+              color: AppColors.error,
+            ),
+            SizedBox(height: spacing),
+            Text(
+              'Error loading dashboard',
+              style: TextStyle(
+                fontSize: ResponsiveUtil.getFontSize(context, baseSize: 18),
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            SizedBox(height: spacing / 2),
+            Text(
+              message,
+              style: TextStyle(
+                fontSize: ResponsiveUtil.getFontSize(context, baseSize: 14),
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: spacing * 2),
+            ElevatedButton.icon(
+              onPressed: () {
+                if (isStats) {
+                  context.read<DashboardCubit>().loadStats();
+                } else {
+                  context.read<DashboardCubit>().loadChart();
+                }
+              },
+              icon: const Icon(FeatherIcons.refreshCw),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.metricPurple,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(
+                  horizontal: spacing * 2,
+                  vertical: spacing,
                 ),
               ),
             ),
           ],
         ),
       ),
-      // Bottom navigation is handled by main app
+    );
+  }
+
+  Widget _buildLoadedContent(BuildContext context, DashboardLoaded state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Metric Cards Grid
+        _buildMetricCards(state.stats),
+        SizedBox(height: ResponsiveUtil.getLargeSpacing(context)),
+        
+        // Revenue vs Expenses Chart
+        if (state.chartData != null)
+          RevenueExpensesChart(chartData: state.chartData!)
+        else
+          _buildChartLoadingState(context),
+        SizedBox(height: ResponsiveUtil.getLargeSpacing(context)),
+      ],
+    );
+  }
+
+  Widget _buildMetricCardsSkeleton() {
+    final spacing = ResponsiveUtil.getSpacing(context);
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _buildSkeletonCard()),
+            SizedBox(width: spacing),
+            Expanded(child: _buildSkeletonCard()),
+          ],
+        ),
+        SizedBox(height: spacing),
+        Row(
+          children: [
+            Expanded(child: _buildSkeletonCard()),
+            SizedBox(width: spacing),
+            Expanded(child: _buildSkeletonCard()),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSkeletonCard() {
+    return Container(
+      padding: EdgeInsets.all(ResponsiveUtil.getCardPadding(context)),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: AppColors.gray200,
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: 100,
+            height: 24,
+            decoration: BoxDecoration(
+              color: AppColors.gray200,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: 80,
+            height: 16,
+            decoration: BoxDecoration(
+              color: AppColors.gray200,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartSkeleton() {
+    return Container(
+      padding: EdgeInsets.all(ResponsiveUtil.getCardPadding(context) + 4),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      height: ResponsiveUtil.getChartHeight(context) + 100,
+      child: Center(
+        child: CircularProgressIndicator(
+          color: AppColors.metricPurple,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChartLoadingState(BuildContext context) {
+    return BlocBuilder<DashboardCubit, DashboardState>(
+      builder: (context, state) {
+        if (state is DashboardLoading && state.isLoadingChart) {
+          return _buildChartSkeleton();
+        } else if (state is DashboardError && state.isChartError) {
+          return _buildErrorState(context, state.message, isStats: false);
+        }
+        return _buildChartSkeleton();
+      },
     );
   }
 
@@ -232,7 +440,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildMetricCards() {
+  Widget _buildMetricCards(DashboardStats stats) {
     final spacing = ResponsiveUtil.getSpacing(context);
     
     return Column(
@@ -242,7 +450,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Expanded(
               child: MetricCard(
-                value: '\$45,210',
+                value: stats.formattedTotalStockValue,
                 label: 'Total Stock Value',
                 iconColor: AppColors.metricPurple,
                 icon: FeatherIcons.shoppingCart,
@@ -252,7 +460,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             SizedBox(width: spacing),
             Expanded(
               child: MetricCard(
-                value: '1,284',
+                value: stats.formattedTotalStock,
                 label: 'Total Stock',
                 iconColor: AppColors.metricGreen,
                 icon: FeatherIcons.package,
@@ -266,7 +474,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Expanded(
               child: MetricCard(
-                value: '08',
+                value: stats.outOfStock.toString().padLeft(2, '0'),
                 label: 'Out of Stock',
                 iconColor: AppColors.metricRed,
                 icon: FeatherIcons.package,
@@ -275,7 +483,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             SizedBox(width: spacing),
             Expanded(
               child: MetricCard(
-                value: '23',
+                value: stats.lowStock.toString().padLeft(2, '0'),
                 label: 'Low Stock',
                 iconColor: AppColors.metricYellow,
                 icon: FeatherIcons.zap,

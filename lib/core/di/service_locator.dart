@@ -3,6 +3,8 @@ import '../services/api_service.dart';
 import '../services/token_storage_service.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/cubit/auth_cubit.dart';
+import '../../features/dashboard/data/dashboard_repository.dart';
+import '../../features/dashboard/cubit/dashboard_cubit.dart';
 
 /// Service locator for dependency injection.
 /// 
@@ -29,10 +31,22 @@ Future<void> setupServiceLocator() async {
     ),
   );
 
+  getIt.registerLazySingleton<DashboardRepository>(
+    () => DashboardRepository(
+      getIt<ApiService>(),
+    ),
+  );
+
   // Cubits/State Management
   getIt.registerFactory<AuthCubit>(
     () => AuthCubit(
       authRepository: getIt<AuthRepository>(),
+    ),
+  );
+
+  getIt.registerFactory<DashboardCubit>(
+    () => DashboardCubit(
+      dashboardRepository: getIt<DashboardRepository>(),
     ),
   );
 
