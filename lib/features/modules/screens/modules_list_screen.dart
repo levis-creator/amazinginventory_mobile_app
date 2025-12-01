@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:feather_icons/feather_icons.dart';
 import '../models/module_item.dart';
 import '../widgets/module_list_item.dart';
@@ -6,6 +7,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/navigation_service.dart';
 import '../../../shared/utils/responsive_util.dart';
+import '../../../features/auth/cubit/auth_cubit.dart';
+import '../../../features/auth/cubit/auth_state.dart';
 import 'package:amazinginventory/shared/widgets/search_bar.dart' as shared;
 
 /// Modules list screen displaying all available inventory management modules
@@ -103,6 +106,16 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
       route: '/stock-movements',
       apiEndpoint: 'stock-movements',
     ),
+    ModuleItem(
+      id: 'logout',
+      title: 'Logout',
+      subtitle: 'Sign out of your account',
+      icon: FeatherIcons.logOut,
+      color: const Color(0xFFF44336),
+      backgroundColor: const Color(0xFFFFEBEE),
+      route: '/logout',
+      apiEndpoint: 'logout',
+    ),
   ];
 
   @override
@@ -131,45 +144,61 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBackground,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top Bar
-            _buildTopBar(),
-
-            // Search
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                ResponsiveUtil.getHorizontalPadding(context),
-                ResponsiveUtil.getSpacing(context),
-                ResponsiveUtil.getHorizontalPadding(context),
-                ResponsiveUtil.getSpacing(context) - 4,
-              ),
-              child: shared.AppSearchBar(
-                controller: _searchController,
-                hintText: 'Search modules...',
-              ),
+    return BlocListener<AuthCubit, AuthState>(
+      listener: (context, state) {
+        // When user logs out, state will change to AuthUnauthenticated
+        // The BlocBuilder in main.dart will automatically show the WelcomeScreen
+        // No action needed here as the BlocBuilder handles navigation
+        if (state is AuthError) {
+          // Show error message if logout fails
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: AppColors.error,
             ),
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.scaffoldBackground,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Top Bar
+              _buildTopBar(),
 
-            // Modules List
-            Expanded(
-              child: _filteredModules.isEmpty
-                  ? _buildEmptyState()
-                  : ListView(
-                      padding: EdgeInsets.all(
-                        ResponsiveUtil.getHorizontalPadding(context),
+              // Search
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  ResponsiveUtil.getHorizontalPadding(context),
+                  ResponsiveUtil.getSpacing(context),
+                  ResponsiveUtil.getHorizontalPadding(context),
+                  ResponsiveUtil.getSpacing(context) - 4,
+                ),
+                child: shared.AppSearchBar(
+                  controller: _searchController,
+                  hintText: 'Search modules...',
+                ),
+              ),
+
+              // Modules List
+              Expanded(
+                child: _filteredModules.isEmpty
+                    ? _buildEmptyState()
+                    : ListView(
+                        padding: EdgeInsets.all(
+                          ResponsiveUtil.getHorizontalPadding(context),
+                        ),
+                        children: _filteredModules.map((module) {
+                          return ModuleListItem(
+                            module: module,
+                            onTap: () => _navigateToModule(module),
+                          );
+                        }).toList(),
                       ),
-                      children: _filteredModules.map((module) {
-                        return ModuleListItem(
-                          module: module,
-                          onTap: () => _navigateToModule(module),
-                        );
-                      }).toList(),
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -197,6 +226,107 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
         ],
       ),
     );
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        final titleFontSize = ResponsiveUtil.getFontSize(context, baseSize: 18);
+        final bodyFontSize = ResponsiveUtil.getFontSize(context, baseSize: 14);
+        final buttonFontSize = ResponsiveUtil.getFontSize(context, baseSize: 16);
+
+        return BlocBuilder<AuthCubit, AuthState>(
+          builder: (context, state) {
+            final isLoggingOut = state is AuthLoading;
+
+            return AlertDialog(
+              backgroundColor: AppColors.cardBackground,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                'Logout',
+                style: TextStyle(
+                  fontSize: titleFontSize,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              content: Text(
+                'Are you sure you want to logout?',
+                style: TextStyle(
+                  fontSize: bodyFontSize,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoggingOut
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: buttonFontSize,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: isLoggingOut
+                      ? null
+                      : () async {
+                          Navigator.of(dialogContext).pop();
+                          await _handleLogout();
+                        },
+                  child: isLoggingOut
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.error,
+                            ),
+                          ),
+                        )
+                      : Text(
+                          'Logout',
+                          style: TextStyle(
+                            fontSize: buttonFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.error,
+                          ),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleLogout() async {
+    try {
+      // Call logout from AuthCubit
+      // This will emit AuthUnauthenticated state, which will trigger
+      // the BlocBuilder in main.dart to show the WelcomeScreen
+      await context.read<AuthCubit>().logout();
+      // Navigation is automatically handled by BlocBuilder in main.dart
+    } catch (e) {
+      // Show error if logout fails
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Logout failed: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildEmptyState() {
@@ -239,6 +369,12 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
   }
 
   void _navigateToModule(ModuleItem module) {
+    // Handle logout separately
+    if (module.id == 'logout') {
+      _showLogoutDialog();
+      return;
+    }
+
     // Map module ID to AppConstants module identifier
     final moduleId = _getModuleId(module.id);
 

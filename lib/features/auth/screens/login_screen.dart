@@ -88,8 +88,15 @@ class _LoginScreenState extends State<LoginScreen> {
         child: BlocConsumer<AuthCubit, AuthState>(
           listener: (context, state) {
             if (state is AuthAuthenticated) {
-              // Pop all routes - BlocBuilder in main.dart will automatically show main app
-              Navigator.of(context).popUntil((route) => route.isFirst);
+              // Navigate to home by clearing all routes
+              // The BlocBuilder in main.dart will automatically show the main app
+              // Use pushAndRemoveUntil to clear the entire navigation stack
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (context) => const SizedBox.shrink(),
+                ),
+                (route) => false, // Remove all previous routes
+              );
             } else if (state is AuthError) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

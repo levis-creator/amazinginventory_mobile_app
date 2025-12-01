@@ -13,6 +13,12 @@ class AuthRepository {
 
   AuthRepository(this._apiService, this._tokenStorage);
 
+  /// Expose API service for token management
+  ApiService get apiService => _apiService;
+
+  /// Expose token storage for checking token existence
+  TokenStorageService? get tokenStorage => _tokenStorage;
+
   /// Login user with email and password.
   /// 
   /// Returns [AuthResponse] containing user data and access token.
@@ -106,11 +112,15 @@ class AuthRepository {
 
   /// Logout current user.
   /// 
-  /// Revokes the current access token on the server.
+  /// Calls the logout endpoint (POST /api/v1/logout) to revoke the current
+  /// access token on the server, then clears the token from local storage.
   /// Throws [ApiException] if request fails.
   Future<void> logout() async {
     try {
+      // Call the logout endpoint to revoke token on server
       await _apiService.post('/logout', {});
+      
+      // Clear token from local storage after successful server logout
       await _apiService.setToken(null);
     } on ApiException {
       rethrow;

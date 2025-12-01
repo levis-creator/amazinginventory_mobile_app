@@ -1,5 +1,4 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../models/user_model.dart';
 import '../data/auth_repository.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/token_storage_service.dart';
@@ -65,9 +64,14 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   /// Logout current user.
+  /// 
+  /// Calls the logout endpoint to revoke the token on the server,
+  /// then emits AuthUnauthenticated state to redirect to login screen.
   Future<void> logout() async {
     try {
+      // Call repository logout which uses the logout endpoint
       await _authRepository.logout();
+      // Emit unauthenticated state - BlocBuilder in main.dart will show login screen
       emit(const AuthUnauthenticated());
     } catch (e) {
       emit(AuthError('Logout failed: ${e.toString()}'));
@@ -75,12 +79,35 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   /// Check authentication status.
+  /// 
+  /// First checks if a token exists in storage. If no token exists,
+  /// immediately emits unauthenticated state. If token exists,
+  /// validates it by fetching current user from API.
   Future<void> checkAuth() async {
     emit(const AuthLoading());
+    
     try {
+      // First, ensure token is loaded from storage
+      final apiService = _authRepository.apiService;
+      await apiService.loadTokenFromStorage();
+      
+      // Check if we have a token
+      final tokenStorage = _authRepository.tokenStorage;
+      final hasToken = await tokenStorage?.hasToken() ?? false;
+      
+      if (!hasToken) {
+        // No token found, user is not authenticated
+        emit(const AuthUnauthenticated());
+        return;
+      }
+      
+      // Token exists, validate it by fetching current user
       final user = await _authRepository.getCurrentUser();
       emit(AuthAuthenticated(user));
     } catch (e) {
+      // Token might be invalid or expired, clear it and show login
+      final tokenStorage = _authRepository.tokenStorage;
+      await tokenStorage?.deleteToken();
       emit(const AuthUnauthenticated());
     }
   }

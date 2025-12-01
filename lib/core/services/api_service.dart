@@ -46,13 +46,11 @@ class ApiService {
         },
       ),
     );
-
-    // Load token from storage if available
-    _loadTokenFromStorage();
   }
 
-  /// Load token from secure storage on initialization.
-  Future<void> _loadTokenFromStorage() async {
+  /// Load token from secure storage.
+  /// This should be called during app initialization to restore session.
+  Future<void> loadTokenFromStorage() async {
     final tokenStorage = _tokenStorage;
     if (tokenStorage != null) {
       final token = await tokenStorage.getToken();
