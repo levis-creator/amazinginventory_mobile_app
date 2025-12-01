@@ -3,16 +3,9 @@ import 'package:feather_icons/feather_icons.dart';
 import '../models/module_item.dart';
 import '../widgets/module_list_item.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/services/navigation_service.dart';
 import 'package:amazinginventory/shared/widgets/search_bar.dart' as shared;
-import '../../sales/screens/sales_list_screen.dart';
-import '../../purchases/screens/purchases_list_screen.dart';
-import '../../capital/screens/capital_list_screen.dart';
-import '../../expenses/screens/expenses_list_screen.dart';
-import '../../expense_categories/screens/expense_categories_list_screen.dart';
-import '../../categories/screens/categories_list_screen.dart';
-import '../../suppliers/screens/suppliers_list_screen.dart';
-import '../../stock_movements/screens/stock_movements_list_screen.dart';
-import '../../inventory/screens/inventory_screen.dart';
 
 /// Modules list screen displaying all available inventory management modules
 /// Implements clean architecture with separation of concerns
@@ -109,16 +102,6 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
       route: '/stock-movements',
       apiEndpoint: 'stock-movements',
     ),
-    ModuleItem(
-      id: 'products',
-      title: 'Products',
-      subtitle: 'Manage product catalog and inventory',
-      icon: FeatherIcons.package,
-      color: AppColors.metricPurple,
-      backgroundColor: AppColors.metricPurple.withValues(alpha: 0.1),
-      route: '/products',
-      apiEndpoint: 'products',
-    ),
   ];
 
   @override
@@ -154,7 +137,7 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
           children: [
             // Top Bar
             _buildTopBar(),
-            
+
             // Search
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
@@ -163,7 +146,7 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
                 hintText: 'Search modules...',
               ),
             ),
-            
+
             // Modules List
             Expanded(
               child: _filteredModules.isEmpty
@@ -199,6 +182,8 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
               color: AppColors.textPrimary,
             ),
           ),
+          // Placeholder to maintain consistent layout with other screens
+          const SizedBox(width: 80),
         ],
       ),
     );
@@ -209,11 +194,7 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            FeatherIcons.grid,
-            size: 64,
-            color: AppColors.gray400,
-          ),
+          Icon(FeatherIcons.grid, size: 64, color: AppColors.gray400),
           const SizedBox(height: 16),
           Text(
             'No modules found',
@@ -226,10 +207,7 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
           const SizedBox(height: 8),
           Text(
             'Try adjusting your search or filters',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textTertiary,
-            ),
+            style: TextStyle(fontSize: 14, color: AppColors.textTertiary),
           ),
         ],
       ),
@@ -237,39 +215,41 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
   }
 
   void _navigateToModule(ModuleItem module) {
-    final screen = _getScreenForModule(module);
-    
-    if (screen != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => screen),
-      );
+    // Map module ID to AppConstants module identifier
+    final moduleId = _getModuleId(module.id);
+
+    if (moduleId != null) {
+      // Use NavigationService to navigate to module screen
+      // This keeps the bottom navigation bar visible
+      NavigationService.instance.navigateToModule(moduleId);
     }
   }
 
-  Widget? _getScreenForModule(ModuleItem module) {
-    switch (module.id) {
+  /// Maps module item ID to AppConstants module identifier.
+  ///
+  /// Returns the corresponding AppConstants module identifier or null if not found.
+  String? _getModuleId(String moduleItemId) {
+    switch (moduleItemId) {
       case 'sales':
-        return const SalesListScreen();
+        return AppConstants.moduleSales;
       case 'purchases':
-        return const PurchasesListScreen();
+        return AppConstants.modulePurchases;
       case 'capital':
-        return const CapitalListScreen();
+        return AppConstants.moduleCapital;
       case 'expenses':
-        return const ExpensesListScreen();
+        return AppConstants.moduleExpenses;
       case 'expense_categories':
-        return const ExpenseCategoriesListScreen();
+        return AppConstants.moduleExpenseCategories;
       case 'categories':
-        return const CategoriesListScreen();
+        return AppConstants.moduleCategories;
       case 'suppliers':
-        return const SuppliersListScreen();
+        return AppConstants.moduleSuppliers;
       case 'stock_movements':
-        return const StockMovementsListScreen();
+        return AppConstants.moduleStockMovements;
       case 'products':
-        return const InventoryScreen();
+        return AppConstants.moduleProducts;
       default:
         return null;
     }
   }
 }
-

@@ -27,6 +27,35 @@ class AppConstants {
   /// Bottom navigation bar index for More/Modules tab
   static const int moreIndex = 3;
 
+  // ==================== Module Screen Identifiers ====================
+  
+  /// Module screen identifier for Sales
+  static const String moduleSales = 'sales';
+  
+  /// Module screen identifier for Purchases
+  static const String modulePurchases = 'purchases';
+  
+  /// Module screen identifier for Capital Investments
+  static const String moduleCapital = 'capital';
+  
+  /// Module screen identifier for Expenses
+  static const String moduleExpenses = 'expenses';
+  
+  /// Module screen identifier for Expense Categories
+  static const String moduleExpenseCategories = 'expense_categories';
+  
+  /// Module screen identifier for Categories
+  static const String moduleCategories = 'categories';
+  
+  /// Module screen identifier for Suppliers
+  static const String moduleSuppliers = 'suppliers';
+  
+  /// Module screen identifier for Stock Movements
+  static const String moduleStockMovements = 'stock_movements';
+  
+  /// Module screen identifier for Products
+  static const String moduleProducts = 'products';
+
   // ==================== Dashboard Constants ====================
   
   /// Default notification count for dashboard badge (placeholder)

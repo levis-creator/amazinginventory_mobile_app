@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:feather_icons/feather_icons.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/navigation_service.dart';
 import 'package:amazinginventory/shared/widgets/search_bar.dart' as shared;
 
 /// Capital investments list screen
@@ -39,9 +40,10 @@ class _CapitalListScreenState extends State<CapitalListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBackground,
-      body: SafeArea(
+    return Material(
+      color: AppColors.scaffoldBackground,
+      child: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             _buildTopBar(),
@@ -76,13 +78,35 @@ class _CapitalListScreenState extends State<CapitalListScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Capital Investments',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
+          Row(
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    NavigationService.instance.onModuleChanged?.call(null);
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      FeatherIcons.arrowLeft,
+                      color: AppColors.textPrimary,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Capital Investments',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
           ),
           Material(
             color: AppColors.metricPurple,
@@ -91,7 +115,10 @@ class _CapitalListScreenState extends State<CapitalListScreen> {
               onTap: _navigateToAddInvestment,
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: const Text(
                   'Add Investment',
                   style: TextStyle(
@@ -113,11 +140,7 @@ class _CapitalListScreenState extends State<CapitalListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            FeatherIcons.dollarSign,
-            size: 64,
-            color: AppColors.gray400,
-          ),
+          Icon(FeatherIcons.dollarSign, size: 64, color: AppColors.gray400),
           const SizedBox(height: 16),
           Text(
             'No investments found',
@@ -130,10 +153,7 @@ class _CapitalListScreenState extends State<CapitalListScreen> {
           const SizedBox(height: 8),
           Text(
             'Try adjusting your search or filters',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textTertiary,
-            ),
+            style: TextStyle(fontSize: 14, color: AppColors.textTertiary),
           ),
         ],
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:feather_icons/feather_icons.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/navigation_service.dart';
 import 'package:amazinginventory/shared/widgets/search_bar.dart' as shared;
 
 /// Stock movements list screen
@@ -9,7 +10,8 @@ class StockMovementsListScreen extends StatefulWidget {
   const StockMovementsListScreen({super.key});
 
   @override
-  State<StockMovementsListScreen> createState() => _StockMovementsListScreenState();
+  State<StockMovementsListScreen> createState() =>
+      _StockMovementsListScreenState();
 }
 
 class _StockMovementsListScreenState extends State<StockMovementsListScreen> {
@@ -39,9 +41,10 @@ class _StockMovementsListScreenState extends State<StockMovementsListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBackground,
-      body: SafeArea(
+    return Material(
+      color: AppColors.scaffoldBackground,
+      child: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             _buildTopBar(),
@@ -76,13 +79,35 @@ class _StockMovementsListScreenState extends State<StockMovementsListScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Stock Movements',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
+          Row(
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    NavigationService.instance.onModuleChanged?.call(null);
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      FeatherIcons.arrowLeft,
+                      color: AppColors.textPrimary,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Stock Movements',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
           ),
           Material(
             color: AppColors.metricPurple,
@@ -91,7 +116,10 @@ class _StockMovementsListScreenState extends State<StockMovementsListScreen> {
               onTap: _navigateToAddMovement,
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: const Text(
                   'Add Movement',
                   style: TextStyle(
@@ -113,11 +141,7 @@ class _StockMovementsListScreenState extends State<StockMovementsListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            FeatherIcons.trendingUp,
-            size: 64,
-            color: AppColors.gray400,
-          ),
+          Icon(FeatherIcons.trendingUp, size: 64, color: AppColors.gray400),
           const SizedBox(height: 16),
           Text(
             'No movements found',
@@ -130,10 +154,7 @@ class _StockMovementsListScreenState extends State<StockMovementsListScreen> {
           const SizedBox(height: 8),
           Text(
             'Try adjusting your search or filters',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textTertiary,
-            ),
+            style: TextStyle(fontSize: 14, color: AppColors.textTertiary),
           ),
         ],
       ),

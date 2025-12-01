@@ -59,12 +59,16 @@ class MyApp extends StatefulWidget {
 ///
 /// Handles:
 /// - Current tab index management
+/// - Current module screen identifier
 /// - Floating action button menu state
 /// - Button rotation animation
 /// - Navigation service integration
 class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
   /// Current active tab index (0-3)
   int _currentIndex = AppConstants.homeIndex;
+
+  /// Current module screen identifier (null when showing modules list)
+  String? _currentModuleId;
 
   /// Whether the floating action button menu is open
   bool _isMenuOpen = false;
@@ -82,10 +86,26 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
   void initState() {
     super.initState();
     _initializeAnimations();
-    // Register navigation service callback for decoupled navigation
+    // Register navigation service callbacks for decoupled navigation
     NavigationService.instance.onTabChanged = (index) {
       setState(() {
-        _currentIndex = index;
+        // If tapping More tab while already on More tab with a module, go back to modules list
+        if (index == AppConstants.moreIndex &&
+            _currentIndex == AppConstants.moreIndex &&
+            _currentModuleId != null) {
+          _currentModuleId = null;
+        } else {
+          _currentIndex = index;
+          // Clear module when switching to a different tab
+          if (index != AppConstants.moreIndex) {
+            _currentModuleId = null;
+          }
+        }
+      });
+    };
+    NavigationService.instance.onModuleChanged = (moduleId) {
+      setState(() {
+        _currentModuleId = moduleId;
       });
     };
   }
@@ -220,7 +240,7 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
             // Store the scaffold context for use in modal
             _scaffoldContext = context;
             return Scaffold(
-              body: AppRouter.getScreenByIndex(_currentIndex),
+              body: _buildCurrentScreen(),
               bottomNavigationBar: _buildBottomNavBar(context),
               extendBody: false,
             );
@@ -228,6 +248,22 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  /// Builds the current screen based on tab index and module selection.
+  ///
+  /// If on the "More" tab and a module is selected, shows the module screen.
+  /// Otherwise, shows the screen for the current tab index.
+  Widget _buildCurrentScreen() {
+    // If on More tab and a module is selected, show module screen
+    if (_currentIndex == AppConstants.moreIndex && _currentModuleId != null) {
+      final moduleScreen = AppRouter.getModuleScreen(_currentModuleId);
+      if (moduleScreen != null) {
+        return moduleScreen;
+      }
+    }
+    // Otherwise, show the screen for current tab
+    return AppRouter.getScreenByIndex(_currentIndex);
   }
 
   /// Builds the bottom navigation bar with floating action button.
