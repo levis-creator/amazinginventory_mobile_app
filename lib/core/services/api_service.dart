@@ -1,17 +1,34 @@
 import 'package:dio/dio.dart';
 import 'token_storage_service.dart';
 import 'api_logging_interceptor.dart';
+import 'api_interface.dart';
+import '../constants/app_constants.dart';
 
 /// API Service for making HTTP requests to the Laravel backend
 /// Uses Dio for better performance, automatic JSON parsing, and advanced features
-class ApiService {
-  static const String baseUrl = 'https://amazinginventory.onrender.com/api/v1';
+///
+/// **Important URL Format:**
+/// - Base URL should be: `http://domain.com/api/v1` (NOT `/api/v1/api/v1`)
+/// - All endpoint paths should be relative (e.g., `/login`, `/user`, `/products`)
+/// - The service automatically combines baseUrl + endpoint path
+/// - Example: baseUrl = 'http://domain.com/api/v1', endpoint = '/login'
+///   Results in: 'http://domain.com/api/v1/login' ✅
+class ApiService implements ApiInterface {
+  /// Base URL for API requests
+  /// Configured in [AppConstants.apiBaseUrl]
+  /// IMPORTANT: Must end with '/api/v1' (Laravel adds '/api' prefix automatically)
+  /// Now loaded from .env file via AppConstants
+  static String get baseUrl => AppConstants.apiBaseUrl;
+
+  /// Get the base URL (instance method for debugging)
+  String get baseUrlInstance => baseUrl;
 
   late final Dio _dio;
   String? _token;
   final TokenStorageService? _tokenStorage;
 
-  ApiService({TokenStorageService? tokenStorage}) : _tokenStorage = tokenStorage {
+  ApiService({TokenStorageService? tokenStorage})
+    : _tokenStorage = tokenStorage {
     _dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
@@ -108,14 +125,29 @@ class ApiService {
   Future<Map<String, dynamic>> get(
     String endpoint, {
     Map<String, dynamic>? queryParams,
+    Duration? timeout,
   }) async {
     try {
+      final options = timeout != null ? Options(receiveTimeout: timeout) : null;
+
       final response = await _dio.get<Map<String, dynamic>>(
         endpoint,
         queryParameters: queryParams,
+        options: options,
       );
       return response.data ?? {};
     } on DioException catch (e) {
+      // Handle timeout errors specifically
+      if (e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        throw ApiException(
+          message:
+              'Request timed out. Please check your internet connection and try again.',
+          statusCode: 408,
+        );
+      }
+
       // Handle API errors with proper parsing
       if (e.response != null) {
         final responseData = e.response!.data;

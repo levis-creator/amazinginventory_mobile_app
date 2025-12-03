@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:feather_icons/feather_icons.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_colors.dart';
 import 'core/constants/app_constants.dart';
@@ -30,6 +31,22 @@ import 'features/auth/screens/welcome_screen.dart';
 /// A floating action button in the center provides quick actions.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables from .env file
+  // This must be done before accessing AppConstants that depend on .env
+  try {
+    await dotenv.load(fileName: '.env');
+    // Debug: Print API configuration
+    debugPrint('✅ .env file loaded successfully');
+    debugPrint('📡 API Base URL: ${AppConstants.apiBaseUrl}');
+    debugPrint('🌍 Environment: ${dotenv.get('APP_ENV', fallback: 'development')}');
+  } catch (e) {
+    // If .env file is not found, continue with fallback values
+    // This allows the app to run even if .env is missing (uses fallback values in AppConstants)
+    debugPrint('Warning: Could not load .env file: $e');
+    debugPrint('Using fallback values from AppConstants');
+    debugPrint('📡 API Base URL (fallback): ${AppConstants.apiBaseUrl}');
+  }
 
   // Initialize dependency injection
   await setupServiceLocator();
@@ -294,44 +311,31 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
             // Show main app if authenticated
             // Use a key to ensure MaterialApp is completely rebuilt when auth state changes
             // Navigation state is reset by BlocListener when AuthAuthenticated is emitted
-            // Additional safety check: ensure we're on home screen when authenticated app is shown
-            if (authState is AuthAuthenticated && 
-                (_currentIndex != AppConstants.homeIndex || _currentModuleId != null)) {
-              // Force reset to home screen (handles edge cases where listener might not have fired yet)
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  setState(() {
-                    _currentIndex = AppConstants.homeIndex;
-                    _currentModuleId = null;
-                  });
-                }
-              });
-            }
-            
             return MaterialApp(
               key: ValueKey('authenticated_app'),
               title: AppConstants.appName,
               debugShowCheckedModeBanner: false,
               theme: AppTheme.lightTheme,
-              home: GestureDetector(
-                onTap: () {
-                  // Close menu when tapping outside
-                  if (_isMenuOpen) {
-                    _toggleMenu();
-                  }
+              home: Builder(
+                builder: (context) {
+                  // Store the scaffold context for use in modal
+                  _scaffoldContext = context;
+                  return Scaffold(
+                    backgroundColor: AppColors.scaffoldBackground,
+                    body: GestureDetector(
+                      onTap: () {
+                        // Close menu when tapping outside (only on body, not nav bar)
+                        if (_isMenuOpen) {
+                          _toggleMenu();
+                        }
+                      },
+                      behavior: HitTestBehavior.translucent,
+                      child: _buildCurrentScreen(),
+                    ),
+                    bottomNavigationBar: _buildBottomNavBar(context),
+                    extendBody: false,
+                  );
                 },
-                child: Builder(
-                  builder: (context) {
-                    // Store the scaffold context for use in modal
-                    _scaffoldContext = context;
-                    return Scaffold(
-                      backgroundColor: AppColors.scaffoldBackground,
-                      body: _buildCurrentScreen(),
-                      bottomNavigationBar: _buildBottomNavBar(context),
-                      extendBody: false,
-                    );
-                  },
-                ),
               ),
             );
           },
@@ -342,6 +346,8 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
 
   /// Builds the current screen based on tab index and module selection.
   ///
+  /// Uses IndexedStack to preserve state of all screens when navigating.
+  /// This ensures dashboard and other screens don't reload data when switching tabs.
   /// If on the "More" tab and a module is selected, shows the module screen.
   /// Otherwise, shows the screen for the current tab index.
   /// Always returns a valid widget (defaults to DashboardScreen if invalid).
@@ -353,9 +359,19 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
         return moduleScreen;
       }
     }
-    // Otherwise, show the screen for current tab
-    // getScreenByIndex always returns a valid widget (defaults to DashboardScreen)
-    return AppRouter.getScreenByIndex(_currentIndex);
+    
+    // Use IndexedStack to preserve state of all screens
+    // This prevents screens from reloading data when navigating between tabs
+    // All screens are kept in memory, only the visible one is shown
+    return IndexedStack(
+      index: _currentIndex,
+      children: [
+        AppRouter.getScreenByIndex(AppConstants.homeIndex),
+        AppRouter.getScreenByIndex(AppConstants.inventoryIndex),
+        AppRouter.getScreenByIndex(AppConstants.notificationsIndex),
+        AppRouter.getScreenByIndex(AppConstants.moreIndex),
+      ],
+    );
   }
 
   /// Builds the bottom navigation bar with floating action button.

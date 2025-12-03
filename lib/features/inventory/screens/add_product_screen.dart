@@ -80,7 +80,7 @@ class _AddProductViewState extends State<_AddProductView> {
               backgroundColor: AppColors.success,
             ),
           );
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(true); // Return true to indicate success
           context.read<AddProductCubit>().reset();
         }
 

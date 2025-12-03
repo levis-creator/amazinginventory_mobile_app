@@ -1,3 +1,5 @@
+import 'product_api_model.dart';
+
 /// Product model representing inventory items.
 /// 
 /// This data class follows clean architecture principles and represents
@@ -71,6 +73,42 @@ class ProductModel {
     this.purchasePrice,
     this.rating,
   });
+
+  /// Creates a [ProductModel] from a [ProductApiModel].
+  /// 
+  /// Converts the API model to the UI model format.
+  factory ProductModel.fromApiModel(ProductApiModel apiModel) {
+    // Determine stock status
+    StockStatus status;
+    if (apiModel.stock == 0) {
+      status = StockStatus.outOfStock;
+    } else if (apiModel.stock < 10) {
+      status = StockStatus.lowStock;
+    } else {
+      status = StockStatus.inStock;
+    }
+
+    // Get first photo or use placeholder
+    final imageUrl = apiModel.photos?.isNotEmpty == true
+        ? apiModel.photos!.first
+        : 'assets/images/placeholder.png';
+
+    // Calculate stock change percent (mock for now, could be calculated from history)
+    final stockChangePercent = 0.0;
+
+    return ProductModel(
+      id: apiModel.id.toString(),
+      name: apiModel.name,
+      sku: apiModel.sku,
+      stock: apiModel.stock,
+      imageUrl: imageUrl,
+      stockChangePercent: stockChangePercent,
+      status: status,
+      category: apiModel.category?.name,
+      sellingPrice: apiModel.sellingPrice,
+      purchasePrice: apiModel.costPrice,
+    );
+  }
 
   /// Returns a list of sample products for demonstration purposes.
   /// 

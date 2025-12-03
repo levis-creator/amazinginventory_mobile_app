@@ -1,4 +1,5 @@
 import '../models/user_model.dart';
+import '../../../core/services/api_interface.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/token_storage_service.dart';
 
@@ -8,13 +9,13 @@ import '../../../core/services/token_storage_service.dart';
 /// logout, and user information retrieval.
 /// Follows repository pattern for clean separation of concerns.
 class AuthRepository {
-  final ApiService _apiService;
+  final ApiInterface _apiService;
   final TokenStorageService _tokenStorage;
 
   AuthRepository(this._apiService, this._tokenStorage);
 
   /// Expose API service for token management
-  ApiService get apiService => _apiService;
+  ApiInterface get apiService => _apiService;
 
   /// Expose token storage for checking token existence
   TokenStorageService? get tokenStorage => _tokenStorage;

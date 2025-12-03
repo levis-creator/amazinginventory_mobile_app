@@ -76,4 +76,3 @@ class RevenueExpensesChartData {
     return ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
   }
 }
-

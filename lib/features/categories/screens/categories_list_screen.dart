@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:feather_icons/feather_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/navigation_service.dart';
+import '../../../core/di/service_locator.dart';
 import 'package:amazinginventory/shared/widgets/search_bar.dart' as shared;
 import '../../../shared/widgets/add_category_modal.dart';
-import '../models/category_model.dart';
-import '../data/mock_category_repository.dart';
+import '../cubit/category_cubit.dart';
+import '../cubit/category_state.dart';
 import '../widgets/category_card.dart';
 
 /// Categories list screen
@@ -19,15 +21,22 @@ class CategoriesListScreen extends StatefulWidget {
 
 class _CategoriesListScreenState extends State<CategoriesListScreen> {
   final TextEditingController _searchController = TextEditingController();
-  List<CategoryModel> _categories = [];
-  List<CategoryModel> _filteredCategories = [];
-  bool _isLoading = true;
+  final CategoryCubit _categoryCubit = getIt<CategoryCubit>();
+  String? _currentSearch;
+  bool _hasLoadedData = false;
 
   @override
   void initState() {
     super.initState();
-    _loadCategories();
     _searchController.addListener(_onSearchChanged);
+    
+    // Load categories when screen is first created
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_hasLoadedData) {
+        _hasLoadedData = true;
+        _categoryCubit.loadCategories();
+      }
+    });
   }
 
   @override
@@ -37,48 +46,20 @@ class _CategoriesListScreenState extends State<CategoriesListScreen> {
     super.dispose();
   }
 
-  Future<void> _loadCategories() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final categories = await MockCategoryRepository.getCategories();
-      setState(() {
-        _categories = categories;
-        _filteredCategories = categories;
-        _isLoading = false;
-      });
-      _applyFilters();
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading categories: $e')),
-        );
-      }
+  void _onSearchChanged() {
+    final searchQuery = _searchController.text.trim();
+    if (searchQuery != _currentSearch) {
+      _currentSearch = searchQuery.isEmpty ? null : searchQuery;
+      _categoryCubit.loadCategories(
+        search: _currentSearch,
+      );
     }
   }
 
-  void _onSearchChanged() {
-    _applyFilters();
-  }
-
-  void _applyFilters() {
-    final searchQuery = _searchController.text;
-    setState(() {
-      if (searchQuery.isEmpty) {
-        _filteredCategories = _categories;
-      } else {
-        _filteredCategories = _categories.where((category) {
-          final searchLower = searchQuery.toLowerCase();
-          return category.name.toLowerCase().contains(searchLower) ||
-              (category.description?.toLowerCase().contains(searchLower) ?? false);
-        }).toList();
-      }
-    });
+  Future<void> _refreshCategories() async {
+    await _categoryCubit.loadCategories(
+      search: _currentSearch,
+    );
   }
 
   void _navigateToAddCategory() {
@@ -86,12 +67,8 @@ class _CategoriesListScreenState extends State<CategoriesListScreen> {
       context: context,
       builder: (context) => AddCategoryModal(
         onCategoryAdded: (category) {
-          setState(() {
-            _categories.add(category);
-            _filteredCategories.add(category);
-          });
-          // Optionally reload from API to get the full list
-          _loadCategories();
+          // Refresh categories from backend after adding
+          _refreshCategories();
         },
       ),
     );
@@ -99,39 +76,52 @@ class _CategoriesListScreenState extends State<CategoriesListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.scaffoldBackground,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            _buildTopBar(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-              child: shared.AppSearchBar(
-                controller: _searchController,
-                hintText: 'Search categories...',
+    return BlocProvider<CategoryCubit>.value(
+      value: _categoryCubit,
+      child: Material(
+        color: AppColors.scaffoldBackground,
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              _buildTopBar(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                child: shared.AppSearchBar(
+                  controller: _searchController,
+                  hintText: 'Search categories...',
+                ),
               ),
-            ),
-            Expanded(
-              child: _isLoading
-                  ? _buildLoadingState()
-                  : _filteredCategories.isEmpty
-                      ? _buildEmptyState()
-                      : RefreshIndicator(
-                          onRefresh: _loadCategories,
+              Expanded(
+                child: BlocBuilder<CategoryCubit, CategoryState>(
+                  builder: (context, state) {
+                    return state.when(
+                      initial: () => _buildLoadingState(),
+                      loading: () => _buildLoadingState(),
+                      loaded: (categories, paginationMeta, paginationLinks) {
+                        if (categories.isEmpty) {
+                          return _buildEmptyState();
+                        }
+                        return RefreshIndicator(
+                          onRefresh: _refreshCategories,
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
-                            itemCount: _filteredCategories.length,
+                            itemCount: categories.length,
                             itemBuilder: (context, index) {
                               return CategoryCard(
-                                category: _filteredCategories[index],
+                                category: categories[index],
                               );
                             },
                           ),
-                        ),
-            ),
-          ],
+                        );
+                      },
+                      error: (message) => _buildErrorState(message),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -230,10 +220,62 @@ class _CategoriesListScreenState extends State<CategoriesListScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Try adjusting your search or filters',
+            _currentSearch != null
+                ? 'Try adjusting your search'
+                : 'Create your first category to get started',
             style: TextStyle(fontSize: 14, color: AppColors.textTertiary),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              FeatherIcons.alertCircle,
+              size: 64,
+              color: AppColors.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading categories',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _refreshCategories,
+              icon: const Icon(FeatherIcons.refreshCw),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.metricPurple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

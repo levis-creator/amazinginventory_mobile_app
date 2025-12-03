@@ -25,39 +25,67 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> 
+    with AutomaticKeepAliveClientMixin {
+  bool _hasLoadedData = false;
+  late final DashboardCubit _cubit;
+
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
-    // Load dashboard data when screen initializes
+    // Get cubit from service locator (singleton, preserves state)
+    _cubit = getIt<DashboardCubit>();
+    // Load data only once when screen is first initialized
+    // Check if data is already loaded before loading
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DashboardCubit>().loadAll();
+      if (mounted && !_hasLoadedData) {
+        _hasLoadedData = true;
+        // Only load if state is initial (not already loaded)
+        final currentState = _cubit.state;
+        if (currentState is DashboardInitial) {
+          _cubit.loadAll();
+        } else {
+          print('✅ DashboardScreen: Data already loaded, skipping initial load');
+        }
+      }
     });
   }
 
   @override
+  void dispose() {
+    // Don't close the cubit here - let the BlocProvider handle it
+    // The cubit is managed by the service locator
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider<DashboardCubit>(
-      create: (context) => getIt<DashboardCubit>(),
-      child: Scaffold(
-        backgroundColor: AppColors.scaffoldBackground,
-        body: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              // Status Bar Spacer
-              Container(
-                height: MediaQuery.of(context).padding.top,
-                color: Colors.transparent,
-              ),
-              // Top Section with Profile and Notifications
-              _buildTopSection(),
-              
-              // Main Content with Pull-to-Refresh
-              Expanded(
-                child: BlocBuilder<DashboardCubit, DashboardState>(
-                  builder: (context, state) {
-                    return RefreshIndicator(
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    
+    return BlocProvider<DashboardCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<DashboardCubit, DashboardState>(
+        builder: (context, state) {
+          return Scaffold(
+            backgroundColor: AppColors.scaffoldBackground,
+            body: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  // Status Bar Spacer
+                  Container(
+                    height: MediaQuery.of(context).padding.top,
+                    color: Colors.transparent,
+                  ),
+                  // Top Section with Profile and Notifications
+                  _buildTopSection(),
+                  
+                  // Main Content with Pull-to-Refresh
+                  Expanded(
+                    child: RefreshIndicator(
                       onRefresh: () async {
                         context.read<DashboardCubit>().refresh();
                         // Wait a bit for the refresh to complete
@@ -72,27 +100,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (state is DashboardLoading && 
-                                state.isLoadingStats && 
-                                state is! DashboardLoaded)
-                              _buildLoadingState()
-                            else if (state is DashboardError && state.isStatsError)
-                              _buildErrorState(context, state.message, isStats: true)
-                            else if (state is DashboardLoaded)
+                            if (state is DashboardLoaded)
                               _buildLoadedContent(context, state)
+                            else if (state is DashboardError)
+                              _buildErrorState(context, state.message, isStats: state.isStatsError)
                             else
                               _buildLoadingState(),
                           ],
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        // Bottom navigation is handled by main app
+            ),
+            // Bottom navigation is handled by main app
+          );
+        },
       ),
     );
   }
@@ -176,7 +200,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (state.chartData != null)
           RevenueExpensesChart(chartData: state.chartData!)
         else
-          _buildChartLoadingState(context),
+          _buildChartPlaceholderWithRetry(context),
         SizedBox(height: ResponsiveUtil.getLargeSpacing(context)),
       ],
     );
@@ -262,16 +286,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildChartLoadingState(BuildContext context) {
-    return BlocBuilder<DashboardCubit, DashboardState>(
-      builder: (context, state) {
-        if (state is DashboardLoading && state.isLoadingChart) {
-          return _buildChartSkeleton();
-        } else if (state is DashboardError && state.isChartError) {
-          return _buildErrorState(context, state.message, isStats: false);
+  Widget _buildChartPlaceholderWithRetry(BuildContext context) {
+    // Automatically retry loading chart data if it's null
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final currentState = context.read<DashboardCubit>().state;
+        if (currentState is DashboardLoaded && currentState.chartData == null) {
+          print('🔄 DashboardScreen: Chart data is null, retrying...');
+          context.read<DashboardCubit>().loadChart();
         }
-        return _buildChartSkeleton();
-      },
+      }
+    });
+    
+    final spacing = ResponsiveUtil.getSpacing(context);
+    return Container(
+      padding: EdgeInsets.all(ResponsiveUtil.getCardPadding(context) + 4),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      height: ResponsiveUtil.getChartHeight(context) + 100,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: AppColors.metricPurple,
+          ),
+          SizedBox(height: spacing),
+          Text(
+            'Loading chart data...',
+            style: TextStyle(
+              fontSize: ResponsiveUtil.getFontSize(context, baseSize: 14),
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:feather_icons/feather_icons.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/di/service_locator.dart';
+import '../../core/services/api_service.dart';
 import '../../shared/utils/responsive_util.dart';
 import '../../features/inventory/widgets/form_input_field.dart';
 import '../../features/categories/models/category_model.dart';
+import '../../features/categories/cubit/category_cubit.dart';
+import '../../features/categories/cubit/category_state.dart';
 
 /// Reusable modal dialog for adding a new category
 /// Can be used from product forms, category list screens, etc.
@@ -28,7 +33,24 @@ class _AddCategoryModalState extends State<AddCategoryModal> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  bool _isSaving = false;
+  late final CategoryCubit _categoryCubit;
+  String? _nameError;
+
+  @override
+  void initState() {
+    super.initState();
+    _categoryCubit = getIt<CategoryCubit>();
+    // Clear error when user starts typing
+    _nameController.addListener(() {
+      if (_nameError != null) {
+        setState(() {
+          _nameError = null;
+        });
+        // Revalidate the form
+        _formKey.currentState?.validate();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -38,38 +60,29 @@ class _AddCategoryModalState extends State<AddCategoryModal> {
   }
 
   Future<void> _handleSave() async {
+    // Clear previous errors
+    setState(() {
+      _nameError = null;
+    });
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    setState(() => _isSaving = true);
-
     try {
-      // TODO: Replace with actual API call
-      // final categoryData = {
-      //   'name': _nameController.text.trim(),
-      //   'description': _descriptionController.text.trim().isEmpty
-      //       ? null
-      //       : _descriptionController.text.trim(),
-      //   'is_active': _isActive,
-      // };
-      // 
-      // final category = await categoryRepository.createCategory(categoryData);
-      
-      // Mock category for now
-      final category = CategoryModel(
-        id: DateTime.now().millisecondsSinceEpoch,
-        name: _nameController.text.trim(),
-        description: _descriptionController.text.trim().isEmpty
+      final categoryData = {
+        'name': _nameController.text.trim(),
+        'description': _descriptionController.text.trim().isEmpty
             ? null
             : _descriptionController.text.trim(),
-        isActive: true, // Default to active
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
+        'is_active': true, // Default to active
+      };
 
+      // Create category and get the created category directly
+      final createdCategory = await _categoryCubit.createCategory(categoryData);
+      
       if (mounted) {
-        widget.onCategoryAdded?.call(category);
+        widget.onCategoryAdded?.call(createdCategory);
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -78,18 +91,46 @@ class _AddCategoryModalState extends State<AddCategoryModal> {
           ),
         );
       }
+    } on ApiException catch (e) {
+      String errorMessage = e.message;
+      final formattedErrors = e.getFormattedErrors();
+      
+      // Check if there's a name-specific error
+      if (e.errors != null && e.errors!.containsKey('name')) {
+        final nameErrors = e.errors!['name'];
+        if (nameErrors is List && nameErrors.isNotEmpty) {
+          _nameError = nameErrors.first.toString();
+        } else if (nameErrors is String) {
+          _nameError = nameErrors;
+        }
+      }
+      
+      if (formattedErrors != null) {
+        errorMessage = formattedErrors;
+      }
+
+      if (mounted) {
+        setState(() {}); // Update UI to show field error
+        // Revalidate form to show field-level errors
+        _formKey.currentState?.validate();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add category: $e'),
+            content: Text('Failed to add category: ${e.toString()}'),
             backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 5),
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
       }
     }
   }
@@ -100,7 +141,13 @@ class _AddCategoryModalState extends State<AddCategoryModal> {
     final horizontalPadding = ResponsiveUtil.getHorizontalPadding(context);
     final verticalPadding = ResponsiveUtil.getVerticalPadding(context);
     
-    return Dialog(
+    return BlocProvider<CategoryCubit>.value(
+      value: _categoryCubit,
+      child: BlocBuilder<CategoryCubit, CategoryState>(
+        builder: (context, state) {
+          final isSaving = state is CategoryLoading;
+          
+          return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: EdgeInsets.all(isSmallScreen ? 12 : 20),
       child: Container(
@@ -175,6 +222,10 @@ class _AddCategoryModalState extends State<AddCategoryModal> {
                         placeholder: 'e.g., Electronics, Clothing, Food',
                         controller: _nameController,
                         validator: (value) {
+                          // Show server validation error if available
+                          if (_nameError != null) {
+                            return _nameError;
+                          }
                           if (value == null || value.trim().isEmpty) {
                             return 'Category name is required';
                           }
@@ -292,18 +343,18 @@ class _AddCategoryModalState extends State<AddCategoryModal> {
                   SizedBox(width: ResponsiveUtil.getSpacing(context)),
                   Expanded(
                     child: Material(
-                      color: _isSaving
+                      color: isSaving
                           ? AppColors.metricPurple.withValues(alpha: 0.6)
                           : AppColors.metricPurple,
                       borderRadius: BorderRadius.circular(isSmallScreen ? 8 : 10),
                       child: InkWell(
-                        onTap: _isSaving ? null : _handleSave,
+                        onTap: isSaving ? null : _handleSave,
                         borderRadius: BorderRadius.circular(isSmallScreen ? 8 : 10),
                         child: Container(
                           padding: EdgeInsets.symmetric(
                             vertical: isSmallScreen ? 12 : 14,
                           ),
-                          child: _isSaving
+                          child: isSaving
                               ? Center(
                                   child: SizedBox(
                                     width: ResponsiveUtil.getIconSize(context, baseSize: 20),
@@ -334,6 +385,9 @@ class _AddCategoryModalState extends State<AddCategoryModal> {
             ),
           ],
         ),
+      ),
+          );
+        },
       ),
     );
   }

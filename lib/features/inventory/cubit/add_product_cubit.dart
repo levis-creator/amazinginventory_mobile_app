@@ -1,39 +1,43 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../categories/models/category_model.dart';
+import '../../categories/data/category_repository.dart';
+import '../data/product_repository.dart';
 
 /// Cubit for managing the add product form state
 class AddProductCubit extends Cubit<AddProductState> {
-  final ApiService _apiService;
+  final ProductRepository _productRepository;
+  final CategoryRepository _categoryRepository;
 
-  AddProductCubit({ApiService? apiService})
-    : _apiService = apiService ?? ApiService(),
-      super(const AddProductState.initial());
+  AddProductCubit({
+    ProductRepository? productRepository,
+    CategoryRepository? categoryRepository,
+  })  : _productRepository = productRepository ?? getIt<ProductRepository>(),
+        _categoryRepository = categoryRepository ?? getIt<CategoryRepository>(),
+        super(const AddProductState.initial());
 
   /// Load categories from API
   Future<void> loadCategories() async {
     emit(state.copyWith(isLoadingCategories: true));
 
     try {
-      // TODO: Replace with actual API call when categories endpoint is ready
-      // final response = await _apiService.get('categories');
-      // final categories = (response['data'] as List)
-      //     .map((json) => CategoryModel.fromJson(json))
-      //     .toList();
+      final result = await _categoryRepository.getCategories(
+        isActive: true,
+        perPage: 50, // Load active categories (reduced to avoid timeouts)
+        sortBy: 'name',
+        sortOrder: 'asc',
+      );
 
-      // Mock delay for now
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // Mock categories - replace with actual API call
-      final categories = <CategoryModel>[];
+      final categories = result['categories'] as List<CategoryModel>;
 
       emit(state.copyWith(categories: categories, isLoadingCategories: false));
     } catch (e) {
       emit(
         state.copyWith(
           isLoadingCategories: false,
-          error: 'Failed to load categories: $e',
+          error: 'Failed to load categories: ${e.toString()}',
         ),
       );
     }
@@ -82,7 +86,9 @@ class AddProductCubit extends Cubit<AddProductState> {
   }
 
   /// Add category to the list (when created via modal)
+  /// Also refreshes the category list from the backend to ensure consistency
   void addCategory(CategoryModel category) {
+    // Add the category to the local list immediately for UI responsiveness
     final updatedCategories = List<CategoryModel>.from(state.categories)
       ..add(category);
     emit(
@@ -91,6 +97,9 @@ class AddProductCubit extends Cubit<AddProductState> {
         selectedCategoryId: category.id,
       ),
     );
+    
+    // Refresh categories from backend to ensure we have the latest data
+    loadCategories();
   }
 
   /// Clear error message
@@ -155,6 +164,7 @@ class AddProductCubit extends Cubit<AddProductState> {
         'cost_price': costPrice,
         'selling_price': sellingPrice,
         'stock': state.stock,
+        'is_active': true, // New products are active by default
       };
 
       // Handle optional SKU field (send only if not empty)
@@ -163,15 +173,14 @@ class AddProductCubit extends Cubit<AddProductState> {
         productData['sku'] = skuValue;
       }
 
-      // Make API call to create product
-      final response = await _apiService.post('products', productData);
+      // Make API call to create product using ProductRepository
+      await _productRepository.createProduct(productData);
 
       emit(
         state.copyWith(
           isSaving: false,
           isSuccess: true,
-          successMessage:
-              response['message'] as String? ?? 'Product saved successfully!',
+          successMessage: 'Product created successfully!',
         ),
       );
     } on ApiException catch (e) {
